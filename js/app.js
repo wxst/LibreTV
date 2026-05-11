@@ -15,7 +15,17 @@ const YELLOW_CONTENT_KEYWORDS = [
     '伦理片', '福利', '里番动漫', '门事件', '萝莉少女', '制服诱惑', '国产传媒',
     'cosplay', '黑丝诱惑', '无码', '日本无码', '有码', '日本有码', 'swag',
     '网红主播', '美女主播', '国产自拍', '色情片', '同性片', '福利视频', '福利片',
-    '成人', '情色', '女优', '人妻', '巨乳', '私拍', '大尺度', '麻豆', '抖阴'
+    '成人', '情色', '女优', '人妻', '巨乳', '私拍', '大尺度', '麻豆', '抖阴',
+    '热舞', '裸聊', '自慰', '做爱', '性交', '口交', '约炮', '无码流出',
+    '番号', '爆乳', '翘臀', '嫩模', '嫩妹', '美乳', '白丝', '丝袜', '写真'
+];
+
+const SEARCH_TITLE_FIELDS = [
+    'vod_name',
+    'vod_sub',
+    'vod_en',
+    'title',
+    'name'
 ];
 
 function isYellowContentFilterEnabled() {
@@ -37,8 +47,51 @@ function getSearchableApiIds(apiIds = selectedAPIs) {
     return ids.filter(apiId => !isAdultSourceId(apiId));
 }
 
+function getSelectedAdultApiIds(apiIds = selectedAPIs) {
+    return Array.from(apiIds || []).filter(apiId => isAdultSourceId(apiId));
+}
+
+function shouldShowAdultRecommendTag() {
+    return !isYellowContentFilterEnabled() && getSelectedAdultApiIds().length > 0;
+}
+
 function normalizeFilterText(value) {
     return String(value || '').toLowerCase();
+}
+
+function normalizeSearchText(value) {
+    return String(value || '').toLowerCase().replace(/\s+/g, '');
+}
+
+function getSearchTitleTexts(item) {
+    return SEARCH_TITLE_FIELDS
+        .map(field => normalizeSearchText(item?.[field]))
+        .filter(Boolean);
+}
+
+function doesResultMatchQuery(item, query) {
+    const compactQuery = normalizeSearchText(query);
+    if (!compactQuery) return true;
+
+    const titleTexts = getSearchTitleTexts(item);
+    if (titleTexts.some(text => text.includes(compactQuery))) {
+        return true;
+    }
+
+    const queryTerms = String(query || '')
+        .toLowerCase()
+        .split(/\s+/)
+        .map(normalizeSearchText)
+        .filter(Boolean);
+
+    return queryTerms.length > 1 && queryTerms.every(term =>
+        titleTexts.some(text => text.includes(term))
+    );
+}
+
+function filterResultsByQuery(results, query) {
+    const list = Array.isArray(results) ? results : [];
+    return list.filter(item => doesResultMatchQuery(item, query));
 }
 
 function matchesYellowContent(item) {
@@ -46,10 +99,16 @@ function matchesYellowContent(item) {
 
     const haystack = [
         item?.vod_name,
+        item?.vod_sub,
+        item?.vod_en,
+        item?.title,
+        item?.name,
         item?.type_name,
         item?.vod_class,
         item?.vod_remarks,
         item?.vod_content,
+        item?.desc,
+        item?.description,
         item?.source_name
     ].map(normalizeFilterText).join(' ');
 
@@ -422,6 +481,10 @@ function updateSelectedAPIs() {
 
     // 更新显示选中的API数量
     updateSelectedApiCount();
+
+    if (typeof window.refreshDoubanAdultTagState === 'function') {
+        window.refreshDoubanAdultTagState();
+    }
 }
 
 // 更新选中的API数量显示
@@ -616,6 +679,11 @@ function setupEventListeners() {
             } else {
                 // 添加成人API列表
                 addAdultAPI();
+            }
+
+            checkAdultAPIsSelected();
+            if (typeof window.refreshDoubanAdultTagState === 'function') {
+                window.refreshDoubanAdultTagState();
             }
         });
     }
@@ -1373,6 +1441,10 @@ function saveStringAsFile(content, fileName) {
 }
 
 window.getSearchableApiIds = getSearchableApiIds;
+window.getSelectedAdultApiIds = getSelectedAdultApiIds;
+window.shouldShowAdultRecommendTag = shouldShowAdultRecommendTag;
+window.doesResultMatchQuery = doesResultMatchQuery;
+window.filterResultsByQuery = filterResultsByQuery;
 window.filterYellowContentResults = filterYellowContentResults;
 window.matchesYellowContent = matchesYellowContent;
 window.getResultTypeLabel = getResultTypeLabel;
