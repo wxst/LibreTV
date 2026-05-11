@@ -22,11 +22,20 @@ async function loadBrowserConfig() {
   return sandbox.window;
 }
 
-test('影视工厂 is available as a default customer API source', async () => {
+test('verified customer API sources are available and invalid placeholders are removed', async () => {
   const window = await loadBrowserConfig();
 
   assert.equal(window.API_SITES.ysgc.name, '影视工厂');
   assert.equal(window.API_SITES.ysgc.api, 'https://cj.lziapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.jszy.api, 'https://jszyapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.wujin.api, 'https://api.wujinapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.maoyan.api, 'https://api.maoyanapi.top/api.php/provide/vod');
+  assert.equal(window.API_SITES.rycj.api, 'https://cj.rycjapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.huya.api, 'https://www.huyaapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.xinlang.api, 'https://api.xinlangapi.com/xinlangapi.php/provide/vod');
+  assert.equal(window.API_SITES.qiqi, undefined);
+  assert.equal(window.API_SITES.testSource, undefined);
+  assert.deepEqual(Array.from(window.DEFAULT_SELECTED_APIS), ['ysgc', 'jszy', 'wujin', 'maoyan']);
 });
 
 test('image helpers normalize common cover URL formats', async () => {
@@ -110,10 +119,10 @@ test('release metadata is bumped for this update', async () => {
   const config = await readProjectFile('js/config.js');
   const versionTxt = (await readProjectFile('VERSION.txt')).trim();
 
-  assert.equal(packageJson.version, '1.1.2');
-  assert.equal(lockJson.version, '1.1.2');
-  assert.equal(lockJson.packages[''].version, '1.1.2');
-  assert.match(config, /version:\s*'1\.1\.2'/);
+  assert.equal(packageJson.version, '1.1.3');
+  assert.equal(lockJson.version, '1.1.3');
+  assert.equal(lockJson.packages[''].version, '1.1.3');
+  assert.match(config, /version:\s*'1\.1\.3'/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

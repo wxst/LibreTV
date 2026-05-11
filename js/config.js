@@ -17,12 +17,12 @@ const SITE_CONFIG = {
     url: 'https://libretv.is-an.org',
     description: '免费在线视频搜索与观看平台',
     logo: 'image/logo.png',
-    version: '1.1.2'
+    version: '1.1.3'
 };
 
-const DEFAULT_SELECTED_APIS = ['ysgc'];
+const DEFAULT_SELECTED_APIS = ['ysgc', 'jszy', 'wujin', 'maoyan'];
 const DEFAULT_API_MIGRATION_KEY = 'defaultApiMigrationVersion';
-const DEFAULT_API_MIGRATION_VERSION = '20260511-ysgc';
+const DEFAULT_API_MIGRATION_VERSION = '20260511-sources-v2';
 
 function escapeHtmlAttr(value) {
     return String(value ?? '')
@@ -102,14 +102,8 @@ function getCustomApiInfo(customApiIndex) {
 }
 
 // API站点配置
-const API_SITES = {
-    testSource: {
-        api: 'https://www.example.com/api.php/provide/vod',
-        name: '空内容测试源',
-        adult: true
-    }
-    //ARCHIVE https://telegra.ph/APIs-08-12
-};
+const API_SITES = {};
+//ARCHIVE https://telegra.ph/APIs-08-12
 
 // 定义合并方法
 function extendAPISites(newSites) {
