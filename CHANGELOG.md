@@ -2,6 +2,13 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.15 - 2026-05-12
+
+### Changed
+
+- Updated the about and privacy page GitHub repository link to the maintained `wxst/LibreTV` repository.
+- Updated the privacy complaint contact email to `9991818@gmail.com`.
+
 ## 1.2.14 - 2026-05-12
 
 ### Changed

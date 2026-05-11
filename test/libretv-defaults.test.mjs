@@ -300,6 +300,16 @@ test('GitHub outreach keeps migration repository-only and self-hosted', async ()
   assert.match(intakeReleaseNotes, /Issues/);
 });
 
+test('about and privacy page use maintained repository and complaint contact', async () => {
+  const about = await readProjectFile('about.html');
+
+  assert.match(about, /https:\/\/github\.com\/wxst\/LibreTV/);
+  assert.match(about, /mailto:9991818@gmail\.com/);
+  assert.match(about, />9991818@gmail\.com</);
+  assert.doesNotMatch(about, /https:\/\/github\.com\/LibreSpark\/LibreTV/);
+  assert.doesNotMatch(about, /troll@pissmail\.com/);
+});
+
 test('public maintenance governance docs and CI are present', async () => {
   const readme = await readProjectFile('README.md');
   const changelog = await readProjectFile('CHANGELOG.md');
@@ -1053,12 +1063,13 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.14');
-  assert.equal(lockJson.version, '1.2.14');
-  assert.equal(lockJson.packages[''].version, '1.2.14');
-  assert.match(config, /version:\s*'1\.2\.14'/);
-  assert.match(changelog, /1\.2\.14/);
-  assert.match(changelog, /投屏|Alt\+Enter|清晰度|hotzone|播放\/暂停/);
+  assert.equal(packageJson.version, '1.2.15');
+  assert.equal(lockJson.version, '1.2.15');
+  assert.equal(lockJson.packages[''].version, '1.2.15');
+  assert.match(config, /version:\s*'1\.2\.15'/);
+  assert.match(changelog, /1\.2\.15/);
+  assert.match(changelog, /about and privacy page GitHub repository link/);
+  assert.match(changelog, /privacy complaint contact email/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });
