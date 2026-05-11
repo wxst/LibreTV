@@ -210,6 +210,9 @@ test('public deployment URLs are not exposed in current tracked files', async ()
     'README.md',
     'CHANGELOG.md',
     'ROADMAP.md',
+    'MIGRATION.md',
+    'docs/UPSTREAM_OUTREACH.md',
+    '.github/release-notes/v1.2.5.md',
     'index.html',
     'js/config.js',
     'manifest.json',
@@ -220,6 +223,24 @@ test('public deployment URLs are not exposed in current tracked files', async ()
   for (const filePath of checkedFiles) {
     assert.doesNotMatch(await readProjectFile(filePath), forbidden, `${filePath} exposes a public URL`);
   }
+});
+
+test('GitHub outreach keeps migration repository-only and self-hosted', async () => {
+  const readme = await readProjectFile('README.md');
+  const migration = await readProjectFile('MIGRATION.md');
+  const outreach = await readProjectFile('docs/UPSTREAM_OUTREACH.md');
+  const releaseNotes = await readProjectFile('.github/release-notes/v1.2.5.md');
+
+  assert.match(readme, /MIGRATION\.md/);
+  assert.match(readme, /不提供公开演示站点/);
+  assert.match(migration, /上游 LibreTV/);
+  assert.match(migration, /不运营公开影视服务/);
+  assert.match(outreach, /只链接 GitHub 仓库/);
+  assert.match(outreach, /每个 issue 最多回复一次/);
+  assert.match(outreach, /不链接任何公开部署站点/);
+  assert.match(releaseNotes, /LibreTV Revival baseline/);
+  assert.match(releaseNotes, /不提供公开演示站点/);
+  assert.match(releaseNotes, /PASSWORD/);
 });
 
 test('public maintenance governance docs and CI are present', async () => {
@@ -380,12 +401,12 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.4');
-  assert.equal(lockJson.version, '1.2.4');
-  assert.equal(lockJson.packages[''].version, '1.2.4');
-  assert.match(config, /version:\s*'1\.2\.4'/);
-  assert.match(changelog, /1\.2\.4/);
-  assert.match(changelog, /源健康/);
+  assert.equal(packageJson.version, '1.2.5');
+  assert.equal(lockJson.version, '1.2.5');
+  assert.equal(lockJson.packages[''].version, '1.2.5');
+  assert.match(config, /version:\s*'1\.2\.5'/);
+  assert.match(changelog, /1\.2\.5/);
+  assert.match(changelog, /GitHub release notes/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

@@ -2,6 +2,17 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.5 - 2026-05-11
+
+### Added
+
+- Added an upstream migration and FAQ guide for users coming from the archived LibreTV repository.
+- Added GitHub release notes and upstream issue reply guidelines for repository-only outreach without public deployment URLs.
+
+### Changed
+
+- Strengthened README positioning around the maintained self-hosted fork and GitHub-first migration entry.
+
 ## 1.2.4 - 2026-05-11
 
 ### Added
