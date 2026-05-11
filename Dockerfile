@@ -10,6 +10,7 @@ ENV DEBUG=false
 ENV REQUEST_TIMEOUT=5000
 ENV MAX_RETRIES=2
 ENV CACHE_MAX_AGE=1d
+ENV PROXY_URL=
 
 # 设置工作目录
 WORKDIR /app
@@ -19,6 +20,9 @@ COPY package*.json ./
 
 # 安装依赖
 RUN npm ci --only=production && npm cache clean --force
+
+# 可选出站代理支持：设置 PROXY_URL 后通过 proxychains-ng 转发容器内请求
+RUN apk add --no-cache proxychains-ng
 
 # 复制应用文件
 COPY . .
@@ -31,4 +35,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:8080', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
 
 # 启动应用
-CMD ["npm", "start"]
+CMD ["sh", "docker-entrypoint.sh"]

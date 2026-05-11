@@ -50,3 +50,12 @@ Status: completed.
 - Avoid one-shot rewrites; every refactor needs focused tests and no behavior drift.
 - Prefer stable user-facing behavior over framework churn.
 - Split source health, playback error classification, and config import/export into focused modules.
+
+## Phase 6: GitHub Adoption and Upstream Migration
+
+Status: in progress.
+
+- Keep the repository description, topics, README, release notes, and migration docs aligned around the maintained self-hosted fork positioning.
+- Help users from the archived upstream repository migrate through `MIGRATION.md` instead of public deployment URLs.
+- Reply only to directly relevant upstream issues, with transparent fork disclosure and no spam.
+- Measure star, fork, issue, and discussion quality after each small outreach batch before expanding.

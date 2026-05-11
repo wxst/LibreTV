@@ -2,6 +2,49 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.7 - 2026-05-11
+
+### Added
+
+- Added GitHub search and migration intake documentation for repository-only outreach.
+- Added an upstream migration issue template and issue/discussion entry points for users coming from archived LibreSpark/LibreTV.
+- Added release notes for the GitHub search and migration intake update.
+
+### Changed
+
+- Strengthened README search positioning for LibreTV Revival as a maintained self-hosted fork of archived LibreSpark/LibreTV.
+
+## 1.2.6 - 2026-05-11
+
+### Changed
+
+- Clarified the GitHub outreach runbook after verifying the archived upstream repository is read-only and cannot accept new issue comments.
+- Updated README outreach wording to route migration users through repository metadata, releases, and this repository's Discussions when upstream issue replies are blocked.
+
+## 1.2.5 - 2026-05-11
+
+### Added
+
+- Added an upstream migration and FAQ guide for users coming from the archived LibreTV repository.
+- Added GitHub release notes and upstream issue reply guidelines for repository-only outreach without public deployment URLs.
+
+### Changed
+
+- Strengthened README positioning around the maintained self-hosted fork and GitHub-first migration entry.
+
+## 1.2.4 - 2026-05-11
+
+### Added
+
+- Added verified optional adult API sources from upstream PR triage; they are marked `adult: true` and remain disabled by default.
+
+## 1.2.3 - 2026-05-11
+
+### Added
+
+- Imported useful upstream PR learnings: optional Docker outbound proxy support via `PROXY_URL`.
+- Added verified optional API sources from post-maintenance upstream PRs while keeping the default selected sources unchanged.
+
 ## 1.2.2 - 2026-05-11
 
 ### Changed
