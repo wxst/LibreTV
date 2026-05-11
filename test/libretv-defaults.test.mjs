@@ -33,9 +33,33 @@ test('verified customer API sources are available and invalid placeholders are r
   assert.equal(window.API_SITES.rycj.api, 'https://cj.rycjapi.com/api.php/provide/vod');
   assert.equal(window.API_SITES.huya.api, 'https://www.huyaapi.com/api.php/provide/vod');
   assert.equal(window.API_SITES.xinlang.api, 'https://api.xinlangapi.com/xinlangapi.php/provide/vod');
+  assert.equal(window.API_SITES.wolong.api, 'https://wolongzyw.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.dbzy.api, 'https://dbzy.tv/api.php/provide/vod');
+  assert.equal(window.API_SITES.mdzy.api, 'https://www.mdzyapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.zuid.api, 'https://api.zuidapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.baidu.api, 'https://api.apibdzy.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.ikun.api, 'https://ikunzyapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.guangsu.api, 'https://api.guangsuapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.jinying.api, 'https://jinyingzy.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.hongniu.api, 'https://www.hongniuzy2.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.hhzy.api, 'https://hhzyapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.p2100.api, 'https://p2100.net/api.php/provide/vod');
+  assert.equal(window.API_SITES.uku.api, 'https://api.ukuapi88.com/api.php/provide/vod');
   assert.equal(window.API_SITES.qiqi, undefined);
   assert.equal(window.API_SITES.testSource, undefined);
   assert.deepEqual(Array.from(window.DEFAULT_SELECTED_APIS), ['ysgc', 'jszy', 'wujin', 'maoyan']);
+});
+
+test('Docker image supports optional outbound proxy without changing default startup', async () => {
+  const dockerfile = await readProjectFile('Dockerfile');
+  const entrypoint = await readProjectFile('docker-entrypoint.sh');
+
+  assert.match(dockerfile, /ENV PROXY_URL=/);
+  assert.match(dockerfile, /apk add --no-cache proxychains-ng/);
+  assert.match(dockerfile, /CMD \["sh", "docker-entrypoint\.sh"\]/);
+  assert.match(entrypoint, /PROXY_URL/);
+  assert.match(entrypoint, /proxychains4 -q -f "\$conf" node server\.mjs/);
+  assert.match(entrypoint, /exec node server\.mjs/);
 });
 
 test('image helpers normalize common cover URL formats', async () => {
@@ -342,11 +366,11 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.2');
-  assert.equal(lockJson.version, '1.2.2');
-  assert.equal(lockJson.packages[''].version, '1.2.2');
-  assert.match(config, /version:\s*'1\.2\.2'/);
-  assert.match(changelog, /1\.2\.2/);
+  assert.equal(packageJson.version, '1.2.3');
+  assert.equal(lockJson.version, '1.2.3');
+  assert.equal(lockJson.packages[''].version, '1.2.3');
+  assert.match(config, /version:\s*'1\.2\.3'/);
+  assert.match(changelog, /1\.2\.3/);
   assert.match(changelog, /源健康/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
