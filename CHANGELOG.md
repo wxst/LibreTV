@@ -2,6 +2,14 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.14 - 2026-05-12
+
+### Changed
+
+- Fixed the player play/pause hotzone so normal video-surface clicks toggle playback from the correct visual center.
+- Added a top in-player native cast button with Remote Playback and AirPlay fallback.
+- Added `Alt+Enter` fullscreen, mobile landscape orientation locking for landscape videos, and HLS quality controls.
+
 ## 1.2.13 - 2026-05-12
 
 ### Fixed
