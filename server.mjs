@@ -64,12 +64,15 @@ async function renderPage(filePath, password) {
   return content;
 }
 
-app.get(['/', '/index.html', '/player.html'], async (req, res) => {
+app.get(['/', '/index.html', '/player.html', '/diagnostics.html'], async (req, res) => {
   try {
     let filePath;
     switch (req.path) {
       case '/player.html':
         filePath = path.join(__dirname, 'player.html');
+        break;
+      case '/diagnostics.html':
+        filePath = path.join(__dirname, 'diagnostics.html');
         break;
       default: // '/' 和 '/index.html'
         filePath = path.join(__dirname, 'index.html');

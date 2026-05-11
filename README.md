@@ -8,6 +8,8 @@ LibreTV 是一个轻量级的在线视频搜索与观看工具，适合个人学
 - 默认视频源筛选、无效源移除、播放直链优先选择。
 - 封面图片规范化、无 referrer 加载和代理 fallback。
 - 可安装 PWA 与离线应用壳。
+- 源健康检查、播放错误分类、诊断页和首次使用引导。
+- 版本化配置导入导出，支持旧配置迁移。
 - 自动化测试和版本规则。
 
 ## 重要声明
@@ -98,6 +100,12 @@ PWA 相关文件：
 - `image/icon-192.png`
 - `image/icon-512-maskable.png`
 
+## 源健康与诊断
+
+设置面板可以检测默认源的搜索、详情和 m3u8 可访问性，并缓存一份本地报告。诊断页位于 `/diagnostics.html`，用于检查密码保护、代理状态、PWA 状态和源状态，不显示密钥、令牌或密码。
+
+配置导出格式当前为 `LibreTV-Settings` `2.0.0`。导入旧版 `1.0.0` 配置时会校验哈希、过滤未知字段，并提示迁移结果。
+
 ## 版本和发布规则
 
 每次用户可见变更都必须同时更新：
@@ -116,12 +124,12 @@ PWA 相关文件：
 
 ## 维护路线
 
-短期工作见 [ROADMAP.md](ROADMAP.md)。当前优先级：
+短期工作见 [ROADMAP.md](ROADMAP.md)。当前阶段：
 
-1. 公开维护基础：README、CHANGELOG、ROADMAP、模板和 CI。
-2. 源健康检查：检测搜索、详情、m3u8 可用性。
-3. 播放错误体验：区分源失效、代理失败、浏览器不支持等。
-4. 首次使用和诊断页：帮助自部署用户发现环境问题。
+1. 已完成公开维护基础：README、CHANGELOG、ROADMAP、模板和 CI。
+2. 已完成源健康检查：检测搜索、详情、m3u8 可用性。
+3. 已完成播放错误体验：区分源失效、代理失败、浏览器不支持等。
+4. 已完成首次使用和诊断页：帮助自部署用户发现环境问题。
 
 ## 开发检查
 
@@ -129,14 +137,24 @@ PWA 相关文件：
 npm test
 node --check js/config.js
 node --check js/api.js
+node --check js/config-manager.js
+node --check js/source-health.js
 node --check js/app.js
+node --check js/player-errors.js
 node --check js/player.js
+node --check js/diagnostics.js
 node --check js/pwa-register.js
 node --check service-worker.js
 git diff --check -- . ':(exclude)package-lock.json'
 ```
 
 CI 会在 push 和 pull request 上运行测试、JS 语法检查和基础静态检查。
+
+可选浏览器 smoke 检查：
+
+```bash
+npm run smoke:browser
+```
 
 ## 贡献
 

@@ -2,6 +2,22 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.0 - 2026-05-11
+
+### Added
+
+- Added source health checks with search, detail, and playable m3u8 probes for default sources.
+- 新增源健康检查：默认源会检测搜索、详情和 m3u8 可访问性。
+- Added a diagnostics page for password, proxy, PWA, and source status without exposing secrets.
+- Added first-run guidance for password setup, source selection, PWA install, and config backup.
+- Added an optional browser smoke script for manifest, diagnostics, service worker, and basic page checks.
+
+### Changed
+
+- Config import/export is now versioned, validated, and migrates old `1.0.0` exports to `2.0.0`.
+- Player failures are classified into source, m3u8 403/404, proxy, timeout, and browser support errors with a one-click source switch action.
+- Split source health, playback error classification, and config storage logic into focused modules.
+
 ## 1.1.5 - 2026-05-11
 
 ### Added

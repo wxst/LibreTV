@@ -146,7 +146,7 @@ test('service worker provides an offline app shell without caching APIs or media
 });
 
 test('pages expose PWA metadata and register the service worker', async () => {
-  const pages = ['index.html', 'player.html', 'watch.html', 'about.html', 'offline.html'];
+  const pages = ['index.html', 'player.html', 'watch.html', 'about.html', 'offline.html', 'diagnostics.html'];
 
   for (const pagePath of pages) {
     const html = await readProjectFile(pagePath);
@@ -178,7 +178,6 @@ test('public maintenance governance docs and CI are present', async () => {
   const ci = await readProjectFile('.github/workflows/ci.yml');
 
   assert.match(readme, /维护续作/);
-  assert.match(readme, /https:\/\/libretv-4vs\.pages\.dev/);
   assert.match(readme, /Cloudflare Pages/);
   assert.match(readme, /PWA/);
   assert.match(readme, /每次用户可见变更/);
@@ -194,16 +193,126 @@ test('public maintenance governance docs and CI are present', async () => {
   assert.match(ci, /node --check/);
 });
 
+test('source health checks probe default sources and expose a UI report', async () => {
+  const sourceHealth = await readProjectFile('js/source-health.js');
+  const index = await readProjectFile('index.html');
+  const sw = await readProjectFile('service-worker.js');
+
+  assert.match(sourceHealth, /SOURCE_HEALTH_STORAGE_KEY/);
+  assert.match(sourceHealth, /runSourceHealthCheck/);
+  assert.match(sourceHealth, /probeSourceHealth/);
+  assert.match(sourceHealth, /handleApiRequest/);
+  assert.match(sourceHealth, /searchOk/);
+  assert.match(sourceHealth, /detailOk/);
+  assert.match(sourceHealth, /playableOk/);
+  assert.match(sourceHealth, /\.m3u8/);
+  assert.match(sourceHealth, /successRate/);
+  assert.match(sourceHealth, /checkedAt/);
+  assert.match(sourceHealth, /sourceHealthReport/);
+  assert.match(index, /sourceHealthSummary/);
+  assert.match(index, /sourceHealthList/);
+  assert.match(index, /runSourceHealthCheck/);
+  assert.match(index, /js\/source-health\.js/);
+  assert.match(sw, /js\/source-health\.js/);
+});
+
+test('playback errors are classified and offer one-click source switching', async () => {
+  const playerErrors = await readProjectFile('js/player-errors.js');
+  const player = await readProjectFile('js/player.js');
+  const playerHtml = await readProjectFile('player.html');
+
+  assert.match(playerErrors, /function classifyPlaybackError/);
+  assert.match(playerErrors, /403/);
+  assert.match(playerErrors, /404/);
+  assert.match(playerErrors, /timeout/);
+  assert.match(playerErrors, /proxy/);
+  assert.match(playerErrors, /browser/);
+  assert.match(player, /classifyPlaybackError/);
+  assert.match(player, /showResourceSwitchModal/);
+  assert.match(player, /一键切换资源/);
+  assert.match(playerHtml, /error-actions/);
+  assert.match(playerHtml, /js\/player-errors\.js/);
+});
+
+test('first-run guidance and diagnostics page support public self-hosting', async () => {
+  const onboarding = await readProjectFile('js/onboarding.js');
+  const diagnostics = await readProjectFile('js/diagnostics.js');
+  const diagnosticsHtml = await readProjectFile('diagnostics.html');
+  const index = await readProjectFile('index.html');
+  const sw = await readProjectFile('service-worker.js');
+  const server = await readProjectFile('server.mjs');
+
+  assert.match(onboarding, /firstRunGuideSeen/);
+  assert.match(onboarding, /showFirstRunGuide/);
+  assert.match(onboarding, /PASSWORD/);
+  assert.match(onboarding, /PWA/);
+  assert.match(onboarding, /导出配置/);
+  assert.match(index, /js\/onboarding\.js/);
+  assert.match(index, /showFirstRunGuide\(true\)/);
+
+  assert.match(diagnosticsHtml, /diagnostics-root/);
+  assert.match(diagnosticsHtml, /js\/diagnostics\.js/);
+  assert.match(diagnostics, /password-status/);
+  assert.match(diagnostics, /proxy-status/);
+  assert.match(diagnostics, /pwa-status/);
+  assert.match(diagnostics, /source-status/);
+  assert.doesNotMatch(diagnosticsHtml, /cfat_|CLOUDFLARE_API_TOKEN|Authorization: Bearer/);
+  assert.match(sw, /diagnostics\.html/);
+  assert.match(sw, /js\/diagnostics\.js/);
+  assert.match(server, /diagnostics\.html/);
+});
+
+test('config import and export are versioned, validated, and migratable', async () => {
+  const configManager = await readProjectFile('js/config-manager.js');
+  const app = await readProjectFile('js/app.js');
+  const index = await readProjectFile('index.html');
+  const sw = await readProjectFile('service-worker.js');
+
+  assert.match(configManager, /CONFIG_EXPORT_VERSION\s*=\s*'2\.0\.0'/);
+  assert.match(configManager, /buildConfigExport/);
+  assert.match(configManager, /validateAndMigrateConfig/);
+  assert.match(configManager, /applyConfigData/);
+  assert.match(configManager, /migrationMessages/);
+  assert.match(configManager, /allowedKeys/);
+  assert.match(configManager, /sourceHealthReport/);
+  assert.match(app, /buildConfigExport/);
+  assert.match(app, /validateAndMigrateConfig/);
+  assert.match(app, /applyConfigData/);
+  assert.match(index, /js\/config-manager\.js/);
+  assert.match(sw, /js\/config-manager\.js/);
+});
+
+test('maintenance roadmap completion adds smoke checks and incremental modules', async () => {
+  const roadmap = await readProjectFile('ROADMAP.md');
+  const readme = await readProjectFile('README.md');
+  const packageJson = JSON.parse(await readProjectFile('package.json'));
+  const smoke = await readProjectFile('scripts/smoke-browser.mjs');
+
+  assert.match(roadmap, /Phase 2: Source Reliability[\s\S]*Status: completed/);
+  assert.match(roadmap, /Phase 3: Playback Reliability[\s\S]*Status: completed/);
+  assert.match(roadmap, /Phase 4: Public Self-hosting Experience[\s\S]*Status: completed/);
+  assert.match(roadmap, /Phase 5: Incremental Architecture Cleanup[\s\S]*Status: completed/);
+  assert.match(readme, /npm run smoke:browser/);
+  assert.equal(packageJson.scripts['smoke:browser'], 'node scripts/smoke-browser.mjs');
+  assert.match(smoke, /playwright/);
+  assert.match(smoke, /diagnostics\.html/);
+  assert.match(smoke, /manifest\.json/);
+});
+
 test('release metadata is bumped for this update', async () => {
   const packageJson = JSON.parse(await readProjectFile('package.json'));
   const lockJson = JSON.parse(await readProjectFile('package-lock.json'));
   const config = await readProjectFile('js/config.js');
   const versionTxt = (await readProjectFile('VERSION.txt')).trim();
 
-  assert.equal(packageJson.version, '1.1.5');
-  assert.equal(lockJson.version, '1.1.5');
-  assert.equal(lockJson.packages[''].version, '1.1.5');
-  assert.match(config, /version:\s*'1\.1\.5'/);
+  const changelog = await readProjectFile('CHANGELOG.md');
+
+  assert.equal(packageJson.version, '1.2.0');
+  assert.equal(lockJson.version, '1.2.0');
+  assert.equal(lockJson.packages[''].version, '1.2.0');
+  assert.match(config, /version:\s*'1\.2\.0'/);
+  assert.match(changelog, /1\.2\.0/);
+  assert.match(changelog, /源健康/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

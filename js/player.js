@@ -546,6 +546,11 @@ function initPlayer(videoUrl) {
         },
         customType: {
             m3u8: function (video, url) {
+                if (typeof Hls === 'undefined' || (typeof Hls.isSupported === 'function' && !Hls.isSupported())) {
+                    showError(classifyPlaybackError(null, { browserUnsupported: true, url }));
+                    return;
+                }
+
                 // 清理之前的HLS实例
                 if (currentHls && currentHls.destroy) {
                     try {
@@ -624,19 +629,30 @@ function initPlayer(videoUrl) {
 
                     // 如果是致命错误，且视频未播放
                     if (data.fatal && !playbackStarted) {
+                        const classifiedError = classifyPlaybackError(data, { url });
                         // 尝试恢复错误
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
-                                hls.startLoad();
+                                if (errorCount > 3 && !errorDisplayed) {
+                                    errorDisplayed = true;
+                                    showError(classifiedError);
+                                } else {
+                                    hls.startLoad();
+                                }
                                 break;
                             case Hls.ErrorTypes.MEDIA_ERROR:
-                                hls.recoverMediaError();
+                                if (errorCount > 3 && !errorDisplayed) {
+                                    errorDisplayed = true;
+                                    showError(classifiedError);
+                                } else {
+                                    hls.recoverMediaError();
+                                }
                                 break;
                             default:
                                 // 仅在多次恢复尝试后显示错误
                                 if (errorCount > 3 && !errorDisplayed) {
                                     errorDisplayed = true;
-                                    showError('视频加载失败，可能是格式不兼容或源不可用');
+                                    showError(classifiedError);
                                 }
                                 break;
                         }
@@ -777,7 +793,7 @@ function initPlayer(videoUrl) {
             if (el) el.style.display = 'none';
         });
 
-        showError('视频播放失败: ' + (error.message || '未知错误'));
+        showError(classifyPlaybackError(error, { url: currentVideoUrl }));
     });
 
     // 添加移动端长按三倍速播放功能
@@ -882,12 +898,28 @@ function showError(message) {
     if (art && art.video && art.video.currentTime > 1) {
         return;
     }
+    const normalized = typeof message === 'object'
+        ? message
+        : classifyPlaybackError({ message: String(message || '') }, { url: currentVideoUrl });
     const loadingEl = document.getElementById('player-loading');
     if (loadingEl) loadingEl.style.display = 'none';
     const errorEl = document.getElementById('error');
     if (errorEl) errorEl.style.display = 'flex';
     const errorMsgEl = document.getElementById('error-message');
-    if (errorMsgEl) errorMsgEl.textContent = message;
+    if (errorMsgEl) errorMsgEl.textContent = normalized.title || '视频播放失败';
+    const errorSubEl = document.getElementById('error-message-sub');
+    if (errorSubEl) errorSubEl.textContent = normalized.message || '请尝试其他视频源或稍后重试';
+    const errorActionsEl = document.getElementById('error-actions');
+    if (errorActionsEl) {
+        errorActionsEl.innerHTML = `
+            <button type="button" class="error-action-primary" onclick="showResourceSwitchModal()">${normalized.actionLabel || '一键切换资源'}</button>
+            <button type="button" class="error-action-secondary" onclick="window.location.reload()">重试</button>
+        `;
+    }
+}
+
+function showResourceSwitchModal() {
+    return showSwitchResourceModal();
 }
 
 // 更新集数信息

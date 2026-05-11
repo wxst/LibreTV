@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibreTV 诊断</title>
+    <meta name="theme-color" content="#0f1622">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="icon" href="image/logo.png">
+    <link rel="apple-touch-icon" href="image/icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <script src="libs/tailwindcss.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="page-bg text-white min-h-screen">
+    <main id="diagnostics-root" class="diagnostics-page">
+        <header class="diagnostics-header">
+            <a href="/" class="diagnostics-back">← 首页</a>
+            <h1>LibreTV 诊断</h1>
+            <p>检查自部署运行状态，不显示密钥或令牌。</p>
+        </header>
+
+        <section class="diagnostics-grid">
+            <div id="password-status" class="diagnostic-item diagnostic-warn"></div>
+            <div id="proxy-status" class="diagnostic-item diagnostic-warn"></div>
+            <div id="pwa-status" class="diagnostic-item diagnostic-warn"></div>
+            <div id="source-status" class="diagnostic-item diagnostic-warn"></div>
+        </section>
+
+        <section class="diagnostics-source">
+            <div class="diagnostics-source-header">
+                <div>
+                    <h2>默认源健康</h2>
+                    <p id="sourceHealthSummary">源健康：尚未检测</p>
+                    <p id="sourceHealthLastChecked">最近检测：尚未检测</p>
+                </div>
+                <button id="sourceHealthButton" onclick="runDiagnosticsSourceHealth()">检测默认源</button>
+            </div>
+            <div id="sourceHealthList" class="source-health-list"></div>
+        </section>
+    </main>
+
+    <script src="libs/sha256.min.js"></script>
+    <script>
+        window._jsSha256 = window.sha256;
+        window.__ENV__ = window.__ENV__ || {};
+        window.__ENV__.PASSWORD = "{{PASSWORD}}";
+    </script>
+    <script src="js/config.js"></script>
+    <script src="js/proxy-auth.js"></script>
+    <script src="js/customer_site.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/password.js"></script>
+    <script src="js/search.js"></script>
+    <script src="js/source-health.js"></script>
+    <script src="js/diagnostics.js"></script>
+    <script src="js/pwa-register.js"></script>
+</body>
+</html>

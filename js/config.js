@@ -17,7 +17,7 @@ const SITE_CONFIG = {
     url: 'https://libretv.is-an.org',
     description: '免费在线视频搜索与观看平台',
     logo: 'image/logo.png',
-    version: '1.1.5'
+    version: '1.2.0'
 };
 
 const DEFAULT_SELECTED_APIS = ['ysgc', 'jszy', 'wujin', 'maoyan'];
@@ -113,6 +113,8 @@ function extendAPISites(newSites) {
 // 暴露到全局
 window.API_SITES = API_SITES;
 window.extendAPISites = extendAPISites;
+window.PROXY_URL = PROXY_URL;
+window.SITE_CONFIG = SITE_CONFIG;
 window.DEFAULT_SELECTED_APIS = DEFAULT_SELECTED_APIS;
 window.DEFAULT_API_MIGRATION_KEY = DEFAULT_API_MIGRATION_KEY;
 window.DEFAULT_API_MIGRATION_VERSION = DEFAULT_API_MIGRATION_VERSION;

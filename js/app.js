@@ -1242,21 +1242,7 @@ async function importConfigFromUrl() {
             }
 
             const config = await response.json();
-            if (config.name !== 'LibreTV-Settings') throw '配置文件格式不正确';
-
-            // 验证哈希
-            const dataHash = await sha256(JSON.stringify(config.data));
-            if (dataHash !== config.hash) throw '配置文件哈希值不匹配';
-
-            // 导入配置
-            for (let item in config.data) {
-                localStorage.setItem(item, config.data[item]);
-            }
-
-            showToast('配置文件导入成功，3 秒后自动刷新本页面。', 'success');
-            setTimeout(() => {
-                window.location.reload();
-            }, 3000);
+            await importConfigPayload(config);
         } catch (error) {
             const message = typeof error === 'string' ? error : '导入配置失败';
             showToast(`从URL导入配置出错 (${message})`, 'error');
@@ -1272,6 +1258,18 @@ async function importConfigFromUrl() {
             document.body.removeChild(modal);
         }
     });
+}
+
+async function importConfigPayload(config) {
+    const result = await validateAndMigrateConfig(config);
+    applyConfigData(result.data);
+    const migrationText = result.migrationMessages.length > 0
+        ? `（${result.migrationMessages.join('；')}）`
+        : '';
+    showToast(`配置文件导入成功${migrationText}，3 秒后自动刷新本页面。`, 'success');
+    setTimeout(() => {
+        window.location.reload();
+    }, 3000);
 }
 
 // 配置文件导入功能
@@ -1292,23 +1290,8 @@ async function importConfig() {
                 reader.readAsText(file);
             });
 
-            // 解析并验证配置
             const config = JSON.parse(content);
-            if (config.name !== 'LibreTV-Settings') throw '配置文件格式不正确';
-
-            // 验证哈希
-            const dataHash = await sha256(JSON.stringify(config.data));
-            if (dataHash !== config.hash) throw '配置文件哈希值不匹配';
-
-            // 导入配置
-            for (let item in config.data) {
-                localStorage.setItem(item, config.data[item]);
-            }
-
-            showToast('配置文件导入成功，3 秒后自动刷新本页面。', 'success');
-            setTimeout(() => {
-                window.location.reload();
-            }, 3000);
+            await importConfigPayload(config);
         } catch (error) {
             const message = typeof error === 'string' ? error : '配置文件格式错误';
             showToast(`配置文件读取出错 (${message})`, 'error');
@@ -1318,47 +1301,8 @@ async function importConfig() {
 
 // 配置文件导出功能
 async function exportConfig() {
-    // 存储配置数据
-    const config = {};
-    const items = {};
-
-    const settingsToExport = [
-        'selectedAPIs',
-        'customAPIs',
-        'yellowFilterEnabled',
-        'adFilteringEnabled',
-        'doubanEnabled',
-        'hasInitializedDefaults'
-    ];
-
-    // 导出设置项
-    settingsToExport.forEach(key => {
-        const value = localStorage.getItem(key);
-        if (value !== null) {
-            items[key] = value;
-        }
-    });
-
-    // 导出历史记录
-    const viewingHistory = localStorage.getItem('viewingHistory');
-    if (viewingHistory) {
-        items['viewingHistory'] = viewingHistory;
-    }
-
-    const searchHistory = localStorage.getItem(SEARCH_HISTORY_KEY);
-    if (searchHistory) {
-        items[SEARCH_HISTORY_KEY] = searchHistory;
-    }
-
-    const times = Date.now().toString();
-    config['name'] = 'LibreTV-Settings';  // 配置文件名，用于校验
-    config['time'] = times;               // 配置文件生成时间
-    config['cfgVer'] = '1.0.0';           // 配置文件版本
-    config['data'] = items;               // 配置文件数据
-    config['hash'] = await sha256(JSON.stringify(config['data']));  // 计算数据的哈希值，用于校验
-
-    // 将配置数据保存为 JSON 文件
-    saveStringAsFile(JSON.stringify(config), 'LibreTV-Settings_' + times + '.json');
+    const config = await buildConfigExport();
+    saveStringAsFile(JSON.stringify(config), 'LibreTV-Settings_' + config.time + '.json');
 }
 
 // 将字符串保存为文件
