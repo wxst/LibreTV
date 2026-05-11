@@ -17,7 +17,7 @@ const SITE_CONFIG = {
     url: 'https://libretv.is-an.org',
     description: '免费在线视频搜索与观看平台',
     logo: 'image/logo.png',
-    version: '1.1.1'
+    version: '1.1.2'
 };
 
 const DEFAULT_SELECTED_APIS = ['ysgc'];
@@ -91,6 +91,16 @@ async function setImageProxyFallback(img, originalUrl, fallbackText = '无封面
     }
 }
 
+function getCustomApiInfo(customApiIndex) {
+    try {
+        const customAPIs = JSON.parse(localStorage.getItem('customAPIs') || '[]');
+        return customAPIs[parseInt(customApiIndex, 10)] || null;
+    } catch (error) {
+        console.error('读取自定义API失败:', error);
+        return null;
+    }
+}
+
 // API站点配置
 const API_SITES = {
     testSource: {
@@ -116,6 +126,7 @@ window.escapeHtmlAttr = escapeHtmlAttr;
 window.normalizeImageUrl = normalizeImageUrl;
 window.setImageProxyFallback = setImageProxyFallback;
 window.setImagePlaceholder = setImagePlaceholder;
+window.getCustomApiInfo = getCustomApiInfo;
 
 
 // 添加聚合搜索的配置选项

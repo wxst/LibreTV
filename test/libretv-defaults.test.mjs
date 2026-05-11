@@ -33,6 +33,7 @@ test('image helpers normalize common cover URL formats', async () => {
   const window = await loadBrowserConfig();
 
   assert.equal(typeof window.normalizeImageUrl, 'function');
+  assert.equal(typeof window.getCustomApiInfo, 'function');
   assert.equal(
     window.normalizeImageUrl('//img.example.test/poster.jpg'),
     'https://img.example.test/poster.jpg'
@@ -53,6 +54,36 @@ test('movie card images avoid hotlink referrers and use authenticated proxy fall
   assert.match(douban, /setImageProxyFallback/);
   assert.match(player, /referrerpolicy="no-referrer"/);
   assert.match(player, /setImageProxyFallback/);
+});
+
+test('detail parsing prefers directly playable m3u8 sources over share pages', async () => {
+  const sandbox = {
+    console,
+    URL,
+    window: {}
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/config.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/api.js'), sandbox);
+
+  assert.equal(typeof sandbox.extractPlayableEpisodes, 'function');
+  const episodes = Array.from(sandbox.extractPlayableEpisodes({
+      vod_play_from: 'liangzi$$$lzm3u8',
+      vod_play_url: 'HD中字$https://v.lzcdn31.com/share/93da579a65ce84cd1d4c85c2cbb84fc5$$$HD中字$https://v.lzcdn31.com/20260329/4136_c7f1876c/index.m3u8'
+  }));
+  assert.deepEqual(
+    episodes,
+    ['https://v.lzcdn31.com/20260329/4136_c7f1876c/index.m3u8']
+  );
+});
+
+test('player can repair stale share-page URLs from detail data', async () => {
+  const player = await readProjectFile('js/player.js');
+
+  assert.match(player, /resolvePlayableEpisodeFromDetail/);
+  assert.match(player, /isDirectPlayableVideoUrl/);
+  assert.match(player, /const videoId = urlParams\.get\('id'\)/);
+  assert.match(player, /当前播放地址不是可直接播放的视频链接/);
 });
 
 test('Cloudflare Pages proxy preserves binary image/media responses', async () => {
@@ -79,10 +110,10 @@ test('release metadata is bumped for this update', async () => {
   const config = await readProjectFile('js/config.js');
   const versionTxt = (await readProjectFile('VERSION.txt')).trim();
 
-  assert.equal(packageJson.version, '1.1.1');
-  assert.equal(lockJson.version, '1.1.1');
-  assert.equal(lockJson.packages[''].version, '1.1.1');
-  assert.match(config, /version:\s*'1\.1\.1'/);
+  assert.equal(packageJson.version, '1.1.2');
+  assert.equal(lockJson.version, '1.1.2');
+  assert.equal(lockJson.packages[''].version, '1.1.2');
+  assert.match(config, /version:\s*'1\.1\.2'/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

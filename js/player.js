@@ -113,12 +113,59 @@ document.addEventListener('passwordVerified', () => {
     initializePageContent();
 });
 
+function isDirectPlayableVideoUrl(url) {
+    return /^https?:\/\/.+\.(m3u8|mp4|webm|mov|m4v|ts)(\?.*)?$/i.test(String(url || '').trim());
+}
+
+function getDetailApiParamsForSource(sourceCode) {
+    if (!sourceCode) return '';
+
+    if (sourceCode.startsWith('custom_')) {
+        const customIndex = sourceCode.replace('custom_', '');
+        const customApi = getCustomApiInfo(customIndex);
+        if (!customApi) return '';
+
+        let params = '&customApi=' + encodeURIComponent(customApi.url) + '&source=custom';
+        if (customApi.detail) {
+            params += '&customDetail=' + encodeURIComponent(customApi.detail);
+        }
+        return params;
+    }
+
+    return '&source=' + encodeURIComponent(sourceCode);
+}
+
+async function resolvePlayableEpisodeFromDetail(videoId, sourceCode, episodeIndex) {
+    const apiParams = getDetailApiParamsForSource(sourceCode);
+    if (!videoId || !apiParams) return null;
+
+    const response = await fetch(`/api/detail?id=${encodeURIComponent(videoId)}${apiParams}&_t=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-cache'
+    });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (!data.episodes || data.episodes.length === 0) return null;
+
+    const targetIndex = episodeIndex < data.episodes.length ? episodeIndex : 0;
+    const targetUrl = data.episodes[targetIndex];
+    if (!isDirectPlayableVideoUrl(targetUrl)) return null;
+
+    return {
+        url: targetUrl,
+        episodes: data.episodes,
+        index: targetIndex
+    };
+}
+
 // 初始化页面内容
-function initializePageContent() {
+async function initializePageContent() {
 
     // 解析URL参数
     const urlParams = new URLSearchParams(window.location.search);
     let videoUrl = urlParams.get('url');
+    const videoId = urlParams.get('id');
     const title = urlParams.get('title');
     const sourceCode = urlParams.get('source');
     let index = parseInt(urlParams.get('index') || '0');
@@ -215,6 +262,32 @@ function initializePageContent() {
         currentEpisodes = [];
         currentEpisodeIndex = 0;
         episodesReversed = false;
+    }
+
+    if (!isDirectPlayableVideoUrl(videoUrl) && videoId && sourceCode) {
+        try {
+            const resolved = await resolvePlayableEpisodeFromDetail(videoId, sourceCode, currentEpisodeIndex);
+            if (resolved) {
+                videoUrl = resolved.url;
+                currentVideoUrl = resolved.url;
+                currentEpisodes = resolved.episodes;
+                currentEpisodeIndex = resolved.index;
+                localStorage.setItem('currentEpisodes', JSON.stringify(currentEpisodes));
+                localStorage.setItem('currentEpisodeIndex', currentEpisodeIndex);
+
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.set('url', resolved.url);
+                newUrl.searchParams.set('index', resolved.index);
+                window.history.replaceState({}, '', newUrl);
+            } else {
+                showError('当前播放地址不是可直接播放的视频链接，请切换资源或重新进入播放页');
+                return;
+            }
+        } catch (error) {
+            console.error('自动修正播放地址失败:', error);
+            showError('播放地址解析失败，请切换资源或重新进入播放页');
+            return;
+        }
     }
 
     // 设置页面标题
