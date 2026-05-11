@@ -2,6 +2,19 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.16 - 2026-05-12
+
+### Fixed
+
+- Fixed player control menu clicks so playback surface handling no longer pauses through settings submenus.
+- Removed duplicate player controls from the bottom bar while keeping the rightmost fullscreen path and mobile landscape lock.
+- Fixed the resource switch modal so it remains visible when opened from fullscreen playback.
+
+### Changed
+
+- Kept the top cast button and added a same-origin Presentation API cast receiver fallback before Remote Playback.
+- In mobile portrait playback outside fullscreen, the bottom bar now keeps only settings, picture-in-picture, and fullscreen visible.
+
 ## 1.2.15 - 2026-05-12
 
 ### Changed
