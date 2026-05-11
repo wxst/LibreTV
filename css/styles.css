@@ -796,10 +796,10 @@ body {
 }
 
 /* 锁定控制时屏蔽交互 */
-.player-container.controls-locked .dplayer-controller,
-.player-container.controls-locked .dplayer-mask,
-.player-container.controls-locked .dplayer-bar-wrap,
-.player-container.controls-locked .dplayer-statusbar,
+.player-container.controls-locked .art-controls,
+.player-container.controls-locked .art-mask,
+.player-container.controls-locked .art-bottom,
+.player-container.controls-locked .art-progress,
 .player-container.controls-locked .shortcut-hint {
     opacity: 0 !important;
     pointer-events: none !important;
