@@ -91,6 +91,14 @@ let shortcutHintTimeout = null; // 用于控制快捷键提示显示时间
 let adFilteringEnabled = true; // 默认开启广告过滤
 let progressSaveInterval = null; // 定期保存进度的计时器
 let currentVideoUrl = ''; // 记录当前实际的视频URL
+let playbackRestoreApplied = false; // 防止同一视频重复恢复进度
+let autoplayMutedNoticeShown = false; // 防止自动播放静音提示刷屏
+let previewVideo = null; // 进度条预览使用的独立视频元素
+let previewHls = null; // 进度条预览使用的独立 HLS 实例
+let progressPreviewEl = null; // 进度条预览浮层
+let progressPreviewCleanup = null; // 进度条预览事件清理器
+let progressPreviewSeekTimer = null; // 进度条预览 seek 节流
+let progressPreviewDestroyTimer = null; // 延迟销毁预览资源
 const isWebkit = (typeof window.webkitConvertPointFromNodeToPage === 'function')
 Artplayer.FULLSCREEN_WEB_IN_BODY = true;
 
@@ -156,6 +164,330 @@ async function resolvePlayableEpisodeFromDetail(videoId, sourceCode, episodeInde
         url: targetUrl,
         episodes: data.episodes,
         index: targetIndex
+    };
+}
+
+function isLowResourcePlaybackDevice() {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const saveData = Boolean(connection && connection.saveData);
+    const deviceMemory = Number(navigator.deviceMemory || 0);
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+
+    return saveData || isMobileDevice || (deviceMemory > 0 && deviceMemory <= 4);
+}
+
+function buildHlsConfig() {
+    const lowResource = isLowResourcePlaybackDevice();
+    const defaultLoader = typeof Hls !== 'undefined' && Hls.DefaultConfig ? Hls.DefaultConfig.loader : undefined;
+    const loader = adFilteringEnabled && typeof CustomHlsJsLoader !== 'undefined'
+        ? CustomHlsJsLoader
+        : defaultLoader;
+
+    return {
+        debug: false,
+        loader,
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: lowResource ? 60 : 120,
+        maxBufferLength: lowResource ? 30 : 60,
+        maxMaxBufferLength: lowResource ? 60 : 120,
+        maxBufferSize: lowResource ? 30 * 1000 * 1000 : 64 * 1000 * 1000,
+        maxBufferHole: 0.5,
+        fragLoadingMaxRetry: 6,
+        fragLoadingMaxRetryTimeout: 64000,
+        fragLoadingRetryDelay: 1000,
+        manifestLoadingMaxRetry: 3,
+        manifestLoadingRetryDelay: 1000,
+        levelLoadingMaxRetry: 4,
+        levelLoadingRetryDelay: 1000,
+        startLevel: -1,
+        abrEwmaDefaultEstimate: 500000,
+        abrBandWidthFactor: 0.95,
+        abrBandWidthUpFactor: 0.7,
+        abrMaxWithRealBitrate: true,
+        stretchShortVideoTrack: true,
+        appendErrorMaxRetry: 5,
+        liveSyncDurationCount: 3,
+        liveDurationInfinity: false
+    };
+}
+
+function getCurrentPlaybackPosition() {
+    if (!art || !art.video) return 0;
+    const currentTime = Number(art.video.currentTime || 0);
+    return Number.isFinite(currentTime) && currentTime > 0 ? currentTime : 0;
+}
+
+function clampPlaybackPosition(position, duration) {
+    const numericPosition = Number(position || 0);
+    if (!Number.isFinite(numericPosition) || numericPosition <= 10) return 0;
+
+    const numericDuration = Number(duration || 0);
+    if (!Number.isFinite(numericDuration) || numericDuration <= 0) {
+        return numericPosition;
+    }
+
+    return Math.min(numericPosition, Math.max(0, numericDuration - 2));
+}
+
+function getStoredPlaybackPosition() {
+    try {
+        const progressKey = 'videoProgress_' + getVideoId();
+        const progressStr = localStorage.getItem(progressKey);
+        if (!progressStr) return 0;
+
+        const progress = JSON.parse(progressStr);
+        return typeof progress?.position === 'number' ? progress.position : 0;
+    } catch (e) {
+        return 0;
+    }
+}
+
+function restorePlaybackPosition() {
+    if (!art || !art.video || playbackRestoreApplied) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedPosition = Number(urlParams.get('position') || 0);
+    const candidatePosition = requestedPosition > 0 ? requestedPosition : getStoredPlaybackPosition();
+    const restoredPosition = clampPlaybackPosition(candidatePosition, art.duration || art.video.duration);
+
+    if (restoredPosition > 10) {
+        art.currentTime = restoredPosition;
+        playbackRestoreApplied = true;
+        showPositionRestoreHint(restoredPosition);
+    }
+}
+
+function showAutoplayMutedNotice() {
+    if (autoplayMutedNoticeShown) return;
+    autoplayMutedNoticeShown = true;
+
+    if (typeof showToast === 'function') {
+        showToast('已静音自动播放，点击播放器恢复声音', 'success');
+    } else if (art && art.notice) {
+        art.notice.show = '已静音自动播放，点击播放器恢复声音';
+    }
+
+    const restoreSoundOnClick = () => {
+        if (art && art.video) {
+            art.muted = false;
+            art.video.muted = false;
+        }
+        document.removeEventListener('click', restoreSoundOnClick, true);
+    };
+    document.addEventListener('click', restoreSoundOnClick, true);
+}
+
+function tryStartPlayback() {
+    if (!art || !art.video) return Promise.resolve(false);
+
+    const playbackPromise = art.video.play();
+    if (!playbackPromise || typeof playbackPromise.catch !== 'function') {
+        return Promise.resolve(true);
+    }
+
+    return playbackPromise.catch(() => {
+        art.muted = true;
+        art.video.muted = true;
+        showAutoplayMutedNotice();
+
+        const mutedPlaybackPromise = art.video.play();
+        if (!mutedPlaybackPromise || typeof mutedPlaybackPromise.catch !== 'function') {
+            return true;
+        }
+
+        return mutedPlaybackPromise
+            .then(() => true)
+            .catch(() => false);
+    })
+        .then(result => result !== false);
+}
+
+function getProgressPreviewTime(clientX, rect, duration) {
+    if (!rect || !Number.isFinite(rect.width) || rect.width <= 0 || !Number.isFinite(duration) || duration <= 0) {
+        return 0;
+    }
+
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    return Math.min(duration, Math.max(0, ratio * duration));
+}
+
+function destroyProgressPreview() {
+    if (progressPreviewCleanup) {
+        progressPreviewCleanup();
+        progressPreviewCleanup = null;
+    }
+
+    if (progressPreviewSeekTimer) {
+        clearTimeout(progressPreviewSeekTimer);
+        progressPreviewSeekTimer = null;
+    }
+
+    if (progressPreviewDestroyTimer) {
+        clearTimeout(progressPreviewDestroyTimer);
+        progressPreviewDestroyTimer = null;
+    }
+
+    if (previewHls && previewHls.destroy) {
+        try {
+            previewHls.destroy();
+        } catch (e) {
+        }
+    }
+    previewHls = null;
+
+    if (previewVideo) {
+        try {
+            previewVideo.removeAttribute('src');
+            previewVideo.load();
+        } catch (e) {
+        }
+        previewVideo = null;
+    }
+
+    if (progressPreviewEl) {
+        progressPreviewEl.remove();
+        progressPreviewEl = null;
+    }
+}
+
+function ensureProgressPreviewMedia() {
+    if (!progressPreviewEl || previewVideo || !currentVideoUrl) return;
+
+    previewVideo = document.createElement('video');
+    previewVideo.className = 'progress-preview-video';
+    previewVideo.muted = true;
+    previewVideo.playsInline = true;
+    previewVideo.preload = 'metadata';
+    previewVideo.crossOrigin = 'anonymous';
+    const timeEl = progressPreviewEl.querySelector('.progress-preview-time');
+    progressPreviewEl.insertBefore(previewVideo, timeEl);
+    progressPreviewEl.classList.add('has-video');
+
+    if (/\.m3u8(\?.*)?$/i.test(currentVideoUrl) && typeof Hls !== 'undefined' && Hls.isSupported && Hls.isSupported()) {
+        previewHls = new Hls({
+            loader: adFilteringEnabled && typeof CustomHlsJsLoader !== 'undefined'
+                ? CustomHlsJsLoader
+                : Hls.DefaultConfig.loader,
+            enableWorker: true,
+            lowLatencyMode: false,
+            maxBufferLength: 8,
+            maxMaxBufferLength: 15,
+            maxBufferSize: 12 * 1000 * 1000,
+            backBufferLength: 0
+        });
+        previewHls.loadSource(currentVideoUrl);
+        previewHls.attachMedia(previewVideo);
+    } else {
+        previewVideo.src = currentVideoUrl;
+    }
+}
+
+function scheduleProgressPreviewSeek(time) {
+    if (!previewVideo) return;
+
+    if (progressPreviewSeekTimer) {
+        clearTimeout(progressPreviewSeekTimer);
+    }
+
+    progressPreviewSeekTimer = setTimeout(() => {
+        try {
+            if (Number.isFinite(time) && Math.abs((previewVideo.currentTime || 0) - time) > 1) {
+                previewVideo.currentTime = Math.max(0, time);
+            }
+        } catch (e) {
+        }
+    }, 180);
+}
+
+function setupProgressPreview() {
+    destroyProgressPreview();
+
+    if (!art || !art.video) return;
+
+    const progressBar = document.querySelector('#player .art-control-progress') ||
+        document.querySelector('#player .art-progress');
+    const playerEl = document.getElementById('player');
+    if (!progressBar || !playerEl) return;
+
+    progressPreviewEl = document.createElement('div');
+    progressPreviewEl.className = 'progress-preview';
+    progressPreviewEl.innerHTML = '<div class="progress-preview-fallback">预览加载中</div><div class="progress-preview-time">00:00</div>';
+    playerEl.appendChild(progressPreviewEl);
+
+    const timeEl = progressPreviewEl.querySelector('.progress-preview-time');
+    const fallbackEl = progressPreviewEl.querySelector('.progress-preview-fallback');
+
+    function updatePreview(clientX) {
+        const rect = progressBar.getBoundingClientRect();
+        const duration = Number(art.duration || art.video.duration || 0);
+        const previewTime = getProgressPreviewTime(clientX, rect, duration);
+        const playerRect = playerEl.getBoundingClientRect();
+        const offsetX = Math.min(playerRect.width - 80, Math.max(80, clientX - playerRect.left));
+
+        ensureProgressPreviewMedia();
+        scheduleProgressPreviewSeek(previewTime);
+
+        if (timeEl) timeEl.textContent = formatTime(previewTime);
+        if (fallbackEl && previewVideo) fallbackEl.textContent = '预览加载中';
+        progressPreviewEl.style.left = `${offsetX}px`;
+        progressPreviewEl.classList.add('show');
+    }
+
+    function handlePointerMove(event) {
+        updatePreview(event.clientX);
+    }
+
+    function handleTouchMove(event) {
+        if (event.touches && event.touches[0]) {
+            updatePreview(event.touches[0].clientX);
+        }
+    }
+
+    function hidePreview() {
+        if (progressPreviewEl) {
+            progressPreviewEl.classList.remove('show');
+        }
+        if (progressPreviewDestroyTimer) {
+            clearTimeout(progressPreviewDestroyTimer);
+        }
+        progressPreviewDestroyTimer = setTimeout(() => {
+            if (previewHls && previewHls.destroy) {
+                try {
+                    previewHls.destroy();
+                } catch (e) {
+                }
+            }
+            previewHls = null;
+            if (previewVideo) {
+                try {
+                    previewVideo.removeAttribute('src');
+                    previewVideo.load();
+                    previewVideo.remove();
+                } catch (e) {
+                }
+                previewVideo = null;
+                if (progressPreviewEl) progressPreviewEl.classList.remove('has-video');
+            }
+        }, 3000);
+    }
+
+    progressBar.addEventListener('pointermove', handlePointerMove);
+    progressBar.addEventListener('mousemove', handlePointerMove);
+    progressBar.addEventListener('touchmove', handleTouchMove, { passive: true });
+    progressBar.addEventListener('pointerleave', hidePreview);
+    progressBar.addEventListener('mouseleave', hidePreview);
+    progressBar.addEventListener('touchend', hidePreview);
+    progressBar.addEventListener('touchcancel', hidePreview);
+
+    progressPreviewCleanup = () => {
+        progressBar.removeEventListener('pointermove', handlePointerMove);
+        progressBar.removeEventListener('mousemove', handlePointerMove);
+        progressBar.removeEventListener('touchmove', handleTouchMove);
+        progressBar.removeEventListener('pointerleave', hidePreview);
+        progressBar.removeEventListener('mouseleave', hidePreview);
+        progressBar.removeEventListener('touchend', hidePreview);
+        progressBar.removeEventListener('touchcancel', hidePreview);
     };
 }
 
@@ -475,40 +807,17 @@ function initPlayer(videoUrl) {
         return
     }
 
+    destroyProgressPreview();
+    playbackRestoreApplied = false;
+    autoplayMutedNoticeShown = false;
+
     // 销毁旧实例
     if (art) {
         art.destroy();
         art = null;
     }
 
-    // 配置HLS.js选项
-    const hlsConfig = {
-        debug: false,
-        loader: adFilteringEnabled ? CustomHlsJsLoader : Hls.DefaultConfig.loader,
-        enableWorker: true,
-        lowLatencyMode: false,
-        backBufferLength: 90,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
-        maxBufferSize: 30 * 1000 * 1000,
-        maxBufferHole: 0.5,
-        fragLoadingMaxRetry: 6,
-        fragLoadingMaxRetryTimeout: 64000,
-        fragLoadingRetryDelay: 1000,
-        manifestLoadingMaxRetry: 3,
-        manifestLoadingRetryDelay: 1000,
-        levelLoadingMaxRetry: 4,
-        levelLoadingRetryDelay: 1000,
-        startLevel: -1,
-        abrEwmaDefaultEstimate: 500000,
-        abrBandWidthFactor: 0.95,
-        abrBandWidthUpFactor: 0.7,
-        abrMaxWithRealBitrate: true,
-        stretchShortVideoTrack: true,
-        appendErrorMaxRetry: 5,  // 增加尝试次数
-        liveSyncDurationCount: 3,
-        liveDurationInfinity: false
-    };
+    const hlsConfig = buildHlsConfig();
 
     // Create new ArtPlayer instance
     art = new Artplayer({
@@ -605,8 +914,7 @@ function initPlayer(videoUrl) {
                 video.disableRemotePlayback = false;
 
                 hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                    video.play().catch(e => {
-                    });
+                    tryStartPlayback();
                 });
 
                 hls.on(Hls.Events.ERROR, function (event, data) {
@@ -726,6 +1034,7 @@ function initPlayer(videoUrl) {
     // 播放器加载完成后初始隐藏工具栏
     art.on('ready', () => {
         hideControls();
+        setupProgressPreview();
     });
 
     // 全屏 Web 模式处理
@@ -741,37 +1050,12 @@ function initPlayer(videoUrl) {
     art.on('video:loadedmetadata', function() {
         document.getElementById('player-loading').style.display = 'none';
         videoHasEnded = false; // 视频加载时重置结束标志
-        // 优先使用URL传递的position参数
-        const urlParams = new URLSearchParams(window.location.search);
-        const savedPosition = parseInt(urlParams.get('position') || '0');
-
-        if (savedPosition > 10 && savedPosition < art.duration - 2) {
-            // 如果URL中有有效的播放位置参数，直接使用它
-            art.currentTime = savedPosition;
-            showPositionRestoreHint(savedPosition);
-        } else {
-            // 否则尝试从本地存储恢复播放进度
-            try {
-                const progressKey = 'videoProgress_' + getVideoId();
-                const progressStr = localStorage.getItem(progressKey);
-                if (progressStr && art.duration > 0) {
-                    const progress = JSON.parse(progressStr);
-                    if (
-                        progress &&
-                        typeof progress.position === 'number' &&
-                        progress.position > 10 &&
-                        progress.position < art.duration - 2
-                    ) {
-                        art.currentTime = progress.position;
-                        showPositionRestoreHint(progress.position);
-                    }
-                }
-            } catch (e) {
-            }
-        }
+        restorePlaybackPosition();
 
         // 设置进度条点击监听
         setupProgressBarPreciseClicks();
+        setupProgressPreview();
+        tryStartPlayback();
 
         // 视频加载成功后，在稍微延迟后将其添加到观看历史
         setTimeout(saveToHistory, 3000);
@@ -779,6 +1063,11 @@ function initPlayer(videoUrl) {
         // 启动定期保存播放进度
         startProgressSaveInterval();
     })
+
+    art.on('video:canplay', function() {
+        restorePlaybackPosition();
+        tryStartPlayback();
+    });
 
     // 错误处理
     art.on('video:error', function (error) {
@@ -1027,6 +1316,8 @@ function playEpisode(index) {
     currentEpisodeIndex = index;
     currentVideoUrl = url;
     videoHasEnded = false; // 重置视频结束标志
+    playbackRestoreApplied = false;
+    destroyProgressPreview();
 
     clearVideoProgress();
 
@@ -1041,6 +1332,7 @@ function playEpisode(index) {
         initPlayer(url);
     } else {
         art.switch = url;
+        tryStartPlayback();
     }
 
     // 更新UI
@@ -1108,10 +1400,10 @@ function updateOrderButton() {
     }
 }
 
-// 设置进度条准确点击处理
+// 设置 ArtPlayer 进度条准确点击处理
 function setupProgressBarPreciseClicks() {
-    // 查找DPlayer的进度条元素
-    const progressBar = document.querySelector('.dplayer-bar-wrap');
+    const progressBar = document.querySelector('#player .art-control-progress') ||
+        document.querySelector('#player .art-progress');
     if (!progressBar || !art || !art.video) return;
 
     // 移除可能存在的旧事件监听器
@@ -1146,7 +1438,7 @@ function setupProgressBarPreciseClicks() {
         // 记录用户点击的位置
         userClickedPosition = clickTime;
 
-        // 阻止默认事件传播，避免DPlayer内部逻辑将视频跳至末尾
+        // 阻止事件冒泡后直接使用 ArtPlayer seek，避免接近片尾时误跳到结束状态
         e.stopPropagation();
 
         // 直接设置视频时间
@@ -1396,10 +1688,6 @@ function setupLongPressSpeedControl() {
 
         // 只在移动设备上禁用右键
         if (isMobile) {
-            const dplayerMenu = document.querySelector(".dplayer-menu");
-            const dplayerMask = document.querySelector(".dplayer-mask");
-            if (dplayerMenu) dplayerMenu.style.display = "none";
-            if (dplayerMask) dplayerMask.style.display = "none";
             return false;
         }
         return true; // 在桌面设备上允许右键菜单
@@ -1522,7 +1810,7 @@ function toggleControlsLock() {
 }
 
 // 支持在iframe中关闭播放器
-function closeEmbeddedPlayer() {
+function closeEmbeddedPlayback() {
     try {
         if (window.self !== window.top) {
             // 如果在iframe中，尝试调用父窗口的关闭方法
@@ -1824,6 +2112,10 @@ async function showSwitchResourceModal() {
 async function switchToResource(sourceKey, vodId) {
     // 关闭模态框
     document.getElementById('modal').classList.add('hidden');
+    const resumePosition = getCurrentPlaybackPosition();
+    if (resumePosition > 1) {
+        saveCurrentProgress();
+    }
     
     showLoading();
     try {
@@ -1875,9 +2167,12 @@ async function switchToResource(sourceKey, vodId) {
         
         // 获取目标集数的URL
         const targetUrl = data.episodes[targetIndex];
+        const resumePositionParam = targetIndex === currentIndex && resumePosition > 1
+            ? `&position=${encodeURIComponent(String(Math.floor(resumePosition)))}`
+            : '';
         
         // 构建播放页面URL
-        const watchUrl = `player.html?id=${vodId}&source=${sourceKey}&url=${encodeURIComponent(targetUrl)}&index=${targetIndex}&title=${encodeURIComponent(currentVideoTitle)}`;
+        const watchUrl = `player.html?id=${vodId}&source=${sourceKey}&url=${encodeURIComponent(targetUrl)}&index=${targetIndex}&title=${encodeURIComponent(currentVideoTitle)}${resumePositionParam}`;
         
         // 保存当前状态到localStorage
         try {

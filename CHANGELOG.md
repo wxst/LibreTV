@@ -2,6 +2,14 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.12 - 2026-05-12
+
+### Changed
+
+- Upgraded the bundled ArtPlayer and hls.js player libraries for the modernized player stack.
+- Increased HLS buffering on capable devices while keeping a conservative fallback for mobile, low-memory, or data-saver clients.
+- Refreshed the player surface with progress-preview UI, autoplay fallback, and source switching that resumes from the current playback time.
+
 ## 1.2.11 - 2026-05-12
 
 ### Fixed

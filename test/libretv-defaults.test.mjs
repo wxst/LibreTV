@@ -826,8 +826,63 @@ test('playback errors are classified and offer one-click source switching', asyn
   assert.match(playerHtml, /js\/player-errors\.js/);
 });
 
+test('player modernization upgrades libraries and removes legacy DPlayer hooks', async () => {
+  const player = await readProjectFile('js/player.js');
+  const styles = await readProjectFile('css/styles.css');
+  const playerStyles = await readProjectFile('css/player.css');
+  const artplayer = await readProjectFile('libs/artplayer.min.js');
+  const hls = await readProjectFile('libs/hls.min.js');
+
+  assert.match(artplayer, /artplayer\.js v5\.4\.0/);
+  assert.match(hls, /hls\.js version 1\.6\.16|version:"1\.6\.16"|version='1\.6\.16'/);
+  assert.doesNotMatch(player, /dplayer/i);
+  assert.doesNotMatch(styles, /dplayer/i);
+  assert.doesNotMatch(playerStyles, /dplayer/i);
+});
+
+test('player HLS config increases buffering with a low resource fallback', async () => {
+  const player = await readProjectFile('js/player.js');
+
+  assert.match(player, /function buildHlsConfig/);
+  assert.match(player, /function isLowResourcePlaybackDevice/);
+  assert.match(player, /saveData/);
+  assert.match(player, /maxBufferLength:\s*lowResource\s*\?\s*30\s*:\s*60/);
+  assert.match(player, /maxMaxBufferLength:\s*lowResource\s*\?\s*60\s*:\s*120/);
+  assert.match(player, /maxBufferSize:\s*lowResource\s*\?\s*30\s*\*\s*1000\s*\*\s*1000\s*:\s*64\s*\*\s*1000\s*\*\s*1000/);
+  assert.match(player, /backBufferLength:\s*lowResource\s*\?\s*60\s*:\s*120/);
+});
+
+test('player progress preview uses a separate preview video and safe time mapping', async () => {
+  const player = await readProjectFile('js/player.js');
+  const playerStyles = await readProjectFile('css/player.css');
+
+  assert.match(player, /function setupProgressPreview/);
+  assert.match(player, /function getProgressPreviewTime/);
+  assert.match(player, /function destroyProgressPreview/);
+  assert.match(player, /previewVideo\s*=\s*document\.createElement\('video'\)/);
+  assert.match(player, /previewHls\s*=\s*new Hls/);
+  assert.match(player, /Math\.min\(duration,\s*Math\.max\(0,\s*ratio \* duration\)\)/);
+  assert.match(playerStyles, /progress-preview/);
+  assert.match(playerStyles, /progress-preview-video/);
+});
+
+test('player autoplay fallback retries muted playback and source switching resumes position', async () => {
+  const player = await readProjectFile('js/player.js');
+
+  assert.match(player, /function tryStartPlayback/);
+  assert.match(player, /playbackPromise\.catch/);
+  assert.match(player, /art\.muted\s*=\s*true/);
+  assert.match(player, /已静音自动播放/);
+  assert.match(player, /function getCurrentPlaybackPosition/);
+  assert.match(player, /function restorePlaybackPosition/);
+  assert.match(player, /function clampPlaybackPosition/);
+  assert.match(player, /const resumePosition\s*=\s*getCurrentPlaybackPosition\(\)/);
+  assert.match(player, /position=\$\{encodeURIComponent\(String\(Math\.floor\(resumePosition\)\)\)\}/);
+});
+
 test('first-run guidance and diagnostics page support public self-hosting', async () => {
   const onboarding = await readProjectFile('js/onboarding.js');
+  const password = await readProjectFile('js/password.js');
   const diagnostics = await readProjectFile('js/diagnostics.js');
   const diagnosticsHtml = await readProjectFile('diagnostics.html');
   const index = await readProjectFile('index.html');
@@ -839,6 +894,9 @@ test('first-run guidance and diagnostics page support public self-hosting', asyn
   assert.match(onboarding, /PASSWORD/);
   assert.match(onboarding, /PWA/);
   assert.match(onboarding, /导出配置/);
+  assert.match(password, /const doubanArea = document\.getElementById\('doubanArea'\)/);
+  assert.match(password, /if \(doubanArea\) doubanArea\.classList\.add\('hidden'\)/);
+  assert.match(password, /if \(localStorage\.getItem\('doubanEnabled'\) === 'true' && doubanArea\)[\s\S]*doubanArea\.classList\.remove\('hidden'\)/);
   assert.match(index, /js\/onboarding\.js/);
   assert.match(index, /css\/modals\.css/);
   assert.ok(index.indexOf('css/modals.css') < index.indexOf('css/styles.css'));
@@ -908,12 +966,12 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.11');
-  assert.equal(lockJson.version, '1.2.11');
-  assert.equal(lockJson.packages[''].version, '1.2.11');
-  assert.match(config, /version:\s*'1\.2\.11'/);
-  assert.match(changelog, /1\.2\.11/);
-  assert.match(changelog, /成人视频|adult tag/);
+  assert.equal(packageJson.version, '1.2.12');
+  assert.equal(lockJson.version, '1.2.12');
+  assert.equal(lockJson.packages[''].version, '1.2.12');
+  assert.match(config, /version:\s*'1\.2\.12'/);
+  assert.match(changelog, /1\.2\.12/);
+  assert.match(changelog, /播放器|ArtPlayer|hls\.js/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });
