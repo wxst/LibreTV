@@ -2,6 +2,13 @@
 
 本页面向来自已归档上游 `LibreSpark/LibreTV` 的自部署用户。`wxst/LibreTV` 是维护续作，目标是让个人实例更容易部署、验证和排障，而不是提供公共影视服务。
 
+相关入口：
+
+- 仓库首页：<https://github.com/wxst/LibreTV>
+- 迁移讨论：<https://github.com/wxst/LibreTV/discussions/9>
+- 可复现问题：<https://github.com/wxst/LibreTV/issues>
+- 最新发布：<https://github.com/wxst/LibreTV/releases>
+
 ## 迁移前确认
 
 - 不要公开自己的部署地址，尤其是带有代理、密码或私人源参数的链接。
@@ -20,6 +27,8 @@
 4. 如果使用 Cloudflare Pages Functions 代理，部署后验证未授权访问 `/proxy/...` 返回 401。
 5. 打开 `/diagnostics.html` 检查密码、代理、PWA 和源状态。诊断页不会显示密钥或令牌。
 6. 如需迁移浏览器配置，先在旧实例导出配置，再在维护版导入。导入器会校验格式并迁移旧配置字段。
+
+如果不确定是部署配置还是代码问题，先在迁移讨论里描述平台、版本和现象；如果能稳定复现，再开 issue。
 
 ## 常见问题
 
