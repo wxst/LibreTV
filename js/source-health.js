@@ -2,6 +2,8 @@ const SOURCE_HEALTH_STORAGE_KEY = 'sourceHealthReport';
 const SOURCE_HEALTH_CHECKED_AT_KEY = 'sourceHealthCheckedAt';
 const SOURCE_HEALTH_TTL_MS = 24 * 60 * 60 * 1000;
 const SOURCE_HEALTH_PROBE_QUERY = '阿凡达';
+const SOURCE_HEALTH_CONCURRENCY = 10;
+const SELECTED_APIS_STORAGE_KEY = 'selectedAPIs';
 
 function getCustomHealthSourceIds() {
     try {
@@ -182,9 +184,91 @@ function summarizeSourceHealth(sources) {
     return { total, ok, degraded, failed, successRate };
 }
 
+async function mapWithConcurrency(items, limit, mapper, onResult) {
+    const list = Array.from(items || []);
+    if (list.length === 0) return [];
+
+    const workerCount = Math.min(Math.max(1, Number(limit) || 1), list.length);
+    const results = new Array(list.length);
+    let nextIndex = 0;
+
+    async function runWorker() {
+        while (nextIndex < list.length) {
+            const index = nextIndex;
+            nextIndex += 1;
+            const result = await mapper(list[index], index);
+            results[index] = result;
+            onResult?.(result, index, results.filter(Boolean));
+        }
+    }
+
+    await Promise.all(Array.from({ length: workerCount }, runWorker));
+    return results;
+}
+
+function getSelectedApiIds() {
+    try {
+        const selected = JSON.parse(localStorage.getItem(SELECTED_APIS_STORAGE_KEY) || '[]');
+        return Array.isArray(selected) ? selected : [];
+    } catch (error) {
+        console.warn('读取选中源失败:', error);
+        return [];
+    }
+}
+
+function saveSelectedApiIds(sourceIds) {
+    localStorage.setItem(SELECTED_APIS_STORAGE_KEY, JSON.stringify(sourceIds));
+    try {
+        if (typeof selectedAPIs !== 'undefined' && Array.isArray(selectedAPIs)) {
+            selectedAPIs = [...sourceIds];
+        }
+    } catch {
+        // selectedAPIs is owned by app.js and may not exist on every page.
+    }
+}
+
+function getSourceCheckbox(sourceId) {
+    if (sourceId.startsWith('custom_')) {
+        return document.getElementById(`custom_api_${sourceId.replace('custom_', '')}`);
+    }
+    return document.getElementById(`api_${sourceId}`);
+}
+
+function refreshSelectedApiUi(removedSourceIds) {
+    removedSourceIds.forEach(sourceId => {
+        const checkbox = getSourceCheckbox(sourceId);
+        if (checkbox) checkbox.checked = false;
+    });
+
+    if (typeof updateSelectedApiCount === 'function') {
+        updateSelectedApiCount();
+    }
+    if (typeof checkAdultAPIsSelected === 'function') {
+        checkAdultAPIsSelected();
+    }
+}
+
+function unselectFailedSources(sources) {
+    const failedSourceIds = sources
+        .filter(source => source?.status === 'failed')
+        .map(source => source.id);
+    if (failedSourceIds.length === 0) return [];
+
+    const failedSet = new Set(failedSourceIds);
+    const selectedSourceIds = getSelectedApiIds();
+    const nextSelectedSourceIds = selectedSourceIds.filter(sourceId => !failedSet.has(sourceId));
+    if (nextSelectedSourceIds.length === selectedSourceIds.length) return [];
+
+    const removedSourceIds = selectedSourceIds.filter(sourceId => failedSet.has(sourceId));
+    saveSelectedApiIds(nextSelectedSourceIds);
+    refreshSelectedApiUi(removedSourceIds);
+    return removedSourceIds;
+}
+
 async function runSourceHealthCheck(sourceIds = getHealthSourceIds()) {
     const checkedAt = new Date().toISOString();
-    const sources = [];
+    const sourceList = Array.from(sourceIds || []);
+    let sources = [];
     const button = document.getElementById('sourceHealthButton');
     if (button) {
         button.disabled = true;
@@ -192,9 +276,17 @@ async function runSourceHealthCheck(sourceIds = getHealthSourceIds()) {
     }
 
     try {
-        for (const sourceId of sourceIds) {
-            sources.push(await probeSourceHealth(sourceId));
-            renderSourceHealthSummary({ version: window.SITE_CONFIG?.version || '', checkedAt, sources, summary: summarizeSourceHealth(sources) });
+        sources = await mapWithConcurrency(sourceList, SOURCE_HEALTH_CONCURRENCY, probeSourceHealth, (_result, _index, completedSources) => {
+            renderSourceHealthSummary({
+                version: window.SITE_CONFIG?.version || '',
+                checkedAt,
+                sources: completedSources,
+                summary: summarizeSourceHealth(completedSources)
+            });
+        });
+        const disabledSourceIds = unselectFailedSources(sources);
+        if (disabledSourceIds.length > 0 && typeof showToast === 'function') {
+            showToast(`已自动取消 ${disabledSourceIds.length} 个检测失败源`, 'warning');
         }
 
         const report = {
@@ -202,6 +294,7 @@ async function runSourceHealthCheck(sourceIds = getHealthSourceIds()) {
             checkedAt,
             ttlMs: SOURCE_HEALTH_TTL_MS,
             sources,
+            disabledSourceIds,
             summary: summarizeSourceHealth(sources)
         };
         saveSourceHealthReport(report);
@@ -272,6 +365,8 @@ window.SOURCE_HEALTH_STORAGE_KEY = SOURCE_HEALTH_STORAGE_KEY;
 window.loadSourceHealthReport = loadSourceHealthReport;
 window.saveSourceHealthReport = saveSourceHealthReport;
 window.getHealthSourceIds = getHealthSourceIds;
+window.SOURCE_HEALTH_CONCURRENCY = SOURCE_HEALTH_CONCURRENCY;
+window.unselectFailedSources = unselectFailedSources;
 window.probeSourceHealth = probeSourceHealth;
 window.runSourceHealthCheck = runSourceHealthCheck;
 window.renderSourceHealthSummary = renderSourceHealthSummary;

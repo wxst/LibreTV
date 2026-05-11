@@ -2,6 +2,13 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.9 - 2026-05-12
+
+### Changed
+
+- Source health checks now run up to 10 probes concurrently to reduce waiting time.
+- Failed selected sources are automatically unchecked and saved after a health check.
+
 ## 1.2.8 - 2026-05-11
 
 ### Changed
