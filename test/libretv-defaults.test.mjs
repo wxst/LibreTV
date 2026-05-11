@@ -383,6 +383,123 @@ test('source health selection includes all built-in and custom sources', async (
   assert.ok(sourceIds.some(sourceId => sandbox.window.API_SITES[sourceId]?.adult));
 });
 
+test('source health checks run with a ten source concurrency limit', async () => {
+  let activeSearches = 0;
+  let maxActiveSearches = 0;
+  const sandbox = {
+    console,
+    URL,
+    window: {
+      API_SITES: {},
+      SITE_CONFIG: { version: 'test' },
+      PROXY_URL: '/proxy/',
+      location: { origin: 'https://libretv.example' }
+    },
+    localStorage: {
+      getItem() {
+        return null;
+      },
+      setItem() {}
+    },
+    document: {
+      addEventListener() {},
+      getElementById() {
+        return null;
+      }
+    },
+    performance: {
+      now() {
+        return 0;
+      }
+    },
+    searchByAPIAndKeyWord: async sourceId => {
+      activeSearches += 1;
+      maxActiveSearches = Math.max(maxActiveSearches, activeSearches);
+      await new Promise(resolve => setTimeout(resolve, 10));
+      activeSearches -= 1;
+      return [{ vod_id: `${sourceId}-1`, vod_name: sourceId }];
+    },
+    handleApiRequest: async () => JSON.stringify({
+      code: 200,
+      episodes: ['https://media.example/video.m3u8']
+    }),
+    fetch: async () => ({ ok: true }),
+    setTimeout,
+    clearTimeout,
+    AbortController
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/source-health.js'), sandbox);
+
+  const sourceIds = Array.from({ length: 12 }, (_, index) => `source_${index}`);
+  const report = await sandbox.window.runSourceHealthCheck(sourceIds);
+
+  assert.equal(report.sources.length, 12);
+  assert.equal(maxActiveSearches, 10);
+});
+
+test('source health checks unselect failed sources for the current user', async () => {
+  const storage = new Map([
+    ['selectedAPIs', JSON.stringify(['ok_source', 'failed_source', 'custom_0'])]
+  ]);
+  const checkboxState = new Map([
+    ['api_ok_source', { checked: true }],
+    ['api_failed_source', { checked: true }],
+    ['custom_api_0', { checked: true }]
+  ]);
+  const sandbox = {
+    console,
+    URL,
+    window: {
+      API_SITES: {},
+      SITE_CONFIG: { version: 'test' },
+      PROXY_URL: '/proxy/',
+      location: { origin: 'https://libretv.example' }
+    },
+    localStorage: {
+      getItem(key) {
+        return storage.get(key) || null;
+      },
+      setItem(key, value) {
+        storage.set(key, value);
+      }
+    },
+    document: {
+      addEventListener() {},
+      getElementById(id) {
+        return checkboxState.get(id) || null;
+      }
+    },
+    performance: {
+      now() {
+        return 0;
+      }
+    },
+    searchByAPIAndKeyWord: async sourceId => {
+      if (sourceId === 'failed_source') return [];
+      return [{ vod_id: `${sourceId}-1`, vod_name: sourceId }];
+    },
+    handleApiRequest: async () => JSON.stringify({
+      code: 200,
+      episodes: ['https://media.example/video.m3u8']
+    }),
+    fetch: async () => ({ ok: true }),
+    updateSelectedApiCount() {},
+    checkAdultAPIsSelected() {},
+    setTimeout,
+    clearTimeout,
+    AbortController
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/source-health.js'), sandbox);
+
+  const report = await sandbox.window.runSourceHealthCheck(['ok_source', 'failed_source', 'custom_0']);
+
+  assert.deepEqual(JSON.parse(storage.get('selectedAPIs')), ['ok_source', 'custom_0']);
+  assert.equal(checkboxState.get('api_failed_source').checked, false);
+  assert.equal(report.disabledSourceIds.includes('failed_source'), true);
+});
+
 test('playback errors are classified and offer one-click source switching', async () => {
   const playerErrors = await readProjectFile('js/player-errors.js');
   const player = await readProjectFile('js/player.js');
@@ -479,11 +596,11 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.8');
-  assert.equal(lockJson.version, '1.2.8');
-  assert.equal(lockJson.packages[''].version, '1.2.8');
-  assert.match(config, /version:\s*'1\.2\.8'/);
-  assert.match(changelog, /1\.2\.8/);
+  assert.equal(packageJson.version, '1.2.9');
+  assert.equal(lockJson.version, '1.2.9');
+  assert.equal(lockJson.packages[''].version, '1.2.9');
+  assert.match(config, /version:\s*'1\.2\.9'/);
+  assert.match(changelog, /1\.2\.9/);
   assert.match(changelog, /检测源|Source health checks/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
