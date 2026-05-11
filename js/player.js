@@ -101,6 +101,8 @@ let progressPreviewSeekTimer = null; // 进度条预览 seek 节流
 let progressPreviewDestroyTimer = null; // 延迟销毁预览资源
 let playerSurfaceCleanup = null; // 播放器画面点击事件清理器
 let playerTopActionsEl = null; // 播放器顶部浮动按钮容器
+let playerControlDensityCleanup = null; // 播放器控制栏密度事件清理器
+const modalHome = { parent: null, nextSibling: null };
 const isWebkit = (typeof window.webkitConvertPointFromNodeToPage === 'function')
 const PLAYER_SURFACE_INTERACTIVE_SELECTOR = [
     '.art-controls',
@@ -108,8 +110,15 @@ const PLAYER_SURFACE_INTERACTIVE_SELECTOR = [
     '.art-bottom',
     '.art-progress',
     '.art-setting',
+    '.art-settings',
+    '.art-setting-item',
     '.art-selector',
+    '.art-selector-item',
     '.art-contextmenus',
+    '.art-contextmenu',
+    '[class*="art-setting"]',
+    '[class*="art-selector"]',
+    '[class*="art-contextmenu"]',
     '.progress-preview',
     '.player-top-actions',
     '[data-video-interactive="true"]',
@@ -335,6 +344,72 @@ function isLandscapeVideo() {
     return width > 0 && height > 0 && width >= height;
 }
 
+function isPlayerFullscreenActive() {
+    const playerEl = document.getElementById('player');
+    const fullscreenElement = document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+
+    return Boolean(
+        art?.fullscreen ||
+        art?.fullscreenWeb ||
+        (playerEl && fullscreenElement && (fullscreenElement === playerEl || fullscreenElement.contains(playerEl) || playerEl.contains(fullscreenElement)))
+    );
+}
+
+function getPlayerFullscreenHost() {
+    const playerEl = document.getElementById('player');
+    const fullscreenElement = document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+
+    if (playerEl && fullscreenElement && (fullscreenElement === playerEl || fullscreenElement.contains(playerEl) || playerEl.contains(fullscreenElement))) {
+        return fullscreenElement;
+    }
+
+    if (art?.fullscreen || art?.fullscreenWeb) {
+        return playerEl?.closest('.art-video-player') || playerEl;
+    }
+
+    return null;
+}
+
+function isMobilePortraitViewport() {
+    return window.matchMedia('(max-width: 640px) and (orientation: portrait)').matches;
+}
+
+function updatePlayerControlDensity() {
+    const playerEl = document.getElementById('player');
+    if (!playerEl) return;
+
+    const fullscreenActive = isPlayerFullscreenActive();
+    playerEl.classList.toggle('player-fullscreen-controls', fullscreenActive);
+    playerEl.classList.toggle('mobile-portrait-compact-controls', isMobilePortraitViewport() && !fullscreenActive);
+}
+
+function setupPlayerControlDensity() {
+    if (playerControlDensityCleanup) {
+        playerControlDensityCleanup();
+        playerControlDensityCleanup = null;
+    }
+
+    const update = () => updatePlayerControlDensity();
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    document.addEventListener('fullscreenchange', update);
+    document.addEventListener('webkitfullscreenchange', update);
+    update();
+
+    playerControlDensityCleanup = () => {
+        window.removeEventListener('resize', update);
+        window.removeEventListener('orientationchange', update);
+        document.removeEventListener('fullscreenchange', update);
+        document.removeEventListener('webkitfullscreenchange', update);
+    };
+}
+
 function maybeLockLandscapeOrientation() {
     if (!isMobilePlaybackDevice() || !isLandscapeVideo()) return Promise.resolve(false);
     if (!screen.orientation || typeof screen.orientation.lock !== 'function') return Promise.resolve(false);
@@ -427,12 +502,120 @@ function setupPlayerSurfaceToggle() {
     };
 }
 
+function getNativeCastVideoUrl(video = art?.video) {
+    const sourceElement = video?.querySelector?.('source');
+    return currentVideoUrl || video?.currentSrc || video?.src || sourceElement?.src || '';
+}
+
+function prepareVideoForNativeCast(video = art?.video, url = getNativeCastVideoUrl(video)) {
+    if (!video) return '';
+
+    try {
+        video.disableRemotePlayback = false;
+        video.removeAttribute('disableRemotePlayback');
+        video.setAttribute('x-webkit-airplay', 'allow');
+        video.setAttribute('webkit-playsinline', 'true');
+        video.setAttribute('playsinline', 'true');
+
+        if (url) {
+            let sourceElement = video.querySelector('source');
+            if (!sourceElement) {
+                sourceElement = document.createElement('source');
+                video.appendChild(sourceElement);
+            }
+            sourceElement.src = url;
+        }
+    } catch (e) {
+    }
+
+    return url || '';
+}
+
+function buildPresentationCastUrl(video = art?.video) {
+    const url = prepareVideoForNativeCast(video);
+    if (!url) return '';
+
+    const castUrl = new URL('cast.html', window.location.href);
+    castUrl.searchParams.set('url', url);
+    castUrl.searchParams.set('title', currentVideoTitle || document.title || 'LibreTV');
+
+    const position = Math.floor(Number(video?.currentTime || 0));
+    if (position > 1) {
+        castUrl.searchParams.set('position', String(position));
+    }
+
+    return castUrl.href;
+}
+
+async function startPresentationCast(video = art?.video) {
+    if (typeof PresentationRequest !== 'function') return false;
+
+    const castUrl = buildPresentationCastUrl(video);
+    if (!castUrl) return false;
+
+    const request = new PresentationRequest([castUrl]);
+    const connection = await request.start();
+    if (connection && typeof connection.addEventListener === 'function') {
+        connection.addEventListener('connect', () => showToast('投屏已连接', 'success'), { once: true });
+    }
+    showToast('投屏已启动', 'success');
+    return true;
+}
+
+function isCastCancelError(error) {
+    return ['AbortError', 'NotFoundError', 'NotAllowedError'].includes(error?.name);
+}
+
+function showNativeCastError(error) {
+    if (error?.name === 'NotFoundError') {
+        showToast('未发现可用投屏设备，请确认电视和本机在同一网络', 'warning');
+        return;
+    }
+
+    if (error?.name === 'NotAllowedError') {
+        showToast('请直接点击投屏按钮启动，浏览器拦截了本次请求', 'warning');
+        return;
+    }
+
+    if (error?.name === 'AbortError') return;
+
+    showToast('当前浏览器无法直接投屏，请尝试浏览器菜单投屏或 Safari AirPlay', 'warning');
+}
+
 async function requestNativeCast(event) {
     event?.preventDefault();
     event?.stopPropagation();
+    if (typeof event?.stopImmediatePropagation === 'function') {
+        event.stopImmediatePropagation();
+    }
 
     const video = art?.video;
-    if (!video) return;
+    if (!video) {
+        showToast('播放器尚未准备好，请稍后重试', 'warning');
+        return;
+    }
+
+    prepareVideoForNativeCast(video);
+
+    if (typeof video.webkitShowPlaybackTargetPicker === 'function') {
+        try {
+            video.webkitShowPlaybackTargetPicker();
+            return;
+        } catch (error) {
+            if (!isCastCancelError(error)) {
+                showNativeCastError(error);
+            }
+        }
+    }
+
+    try {
+        if (await startPresentationCast(video)) return;
+    } catch (error) {
+        if (!isCastCancelError(error)) {
+            showNativeCastError(error);
+            return;
+        }
+    }
 
     try {
         if (video.remote && typeof video.remote.prompt === 'function') {
@@ -440,16 +623,9 @@ async function requestNativeCast(event) {
             return;
         }
 
-        if (typeof video.webkitShowPlaybackTargetPicker === 'function') {
-            video.webkitShowPlaybackTargetPicker();
-            return;
-        }
-
-        showToast('当前浏览器不支持投屏', 'warning');
+        showToast('当前浏览器不支持网页内投屏，请使用浏览器菜单投屏或 Safari AirPlay', 'warning');
     } catch (error) {
-        if (error?.name !== 'AbortError' && error?.name !== 'NotFoundError') {
-            showToast('投屏启动失败，请稍后重试', 'warning');
-        }
+        showNativeCastError(error);
     }
 }
 
@@ -620,14 +796,6 @@ function buildVideoControls() {
             onSelect(item) {
                 return applyVideoFitMode(item);
             }
-        },
-        {
-            name: 'fullscreen-toggle',
-            index: 30,
-            position: 'right',
-            html: playerControlIcon('fullscreen'),
-            tooltip: '全屏',
-            click: toggleFullscreenMode
         }
     ];
 }
@@ -1150,6 +1318,11 @@ function initPlayer(videoUrl) {
             playerSurfaceCleanup();
             playerSurfaceCleanup = null;
         }
+        if (playerControlDensityCleanup) {
+            playerControlDensityCleanup();
+            playerControlDensityCleanup = null;
+        }
+        restoreModalHome();
         art.destroy();
         art = null;
     }
@@ -1176,24 +1349,33 @@ function initPlayer(videoUrl) {
         playbackRate: true,
         aspectRatio: true,
         fullscreen: true,
-        fullscreenWeb: true,
+        fullscreenWeb: false,
         subtitleOffset: false,
         miniProgressBar: true,
         mutex: true,
         backdrop: true,
         playsInline: true,
         autoPlayback: false,
-        airplay: true,
+        airplay: false,
         hotkey: false,
         theme: '#23ade5',
         lang: navigator.language.toLowerCase(),
         controls: buildVideoControls(),
         moreVideoAttr: {
             crossOrigin: 'anonymous',
+            'x-webkit-airplay': 'allow',
         },
         customType: {
             m3u8: function (video, url) {
                 if (typeof Hls === 'undefined' || (typeof Hls.isSupported === 'function' && !Hls.isSupported())) {
+                    if (typeof video.canPlayType === 'function' && video.canPlayType('application/vnd.apple.mpegurl')) {
+                        prepareVideoForNativeCast(video, url);
+                        video.src = url;
+                        video.load();
+                        tryStartPlayback();
+                        return;
+                    }
+
                     showError(classifyPlaybackError(null, { browserUnsupported: true, url }));
                     return;
                 }
@@ -1238,19 +1420,7 @@ function initPlayer(videoUrl) {
                 hls.loadSource(url);
                 hls.attachMedia(video);
 
-                // enable airplay, from https://github.com/video-dev/hls.js/issues/5989
-                // 检查是否已存在source元素，如果存在则更新，不存在则创建
-                let sourceElement = video.querySelector('source');
-                if (sourceElement) {
-                    // 更新现有source元素的URL
-                    sourceElement.src = videoUrl;
-                } else {
-                    // 创建新的source元素
-                    sourceElement = document.createElement('source');
-                    sourceElement.src = videoUrl;
-                    video.appendChild(sourceElement);
-                }
-                video.disableRemotePlayback = false;
+                prepareVideoForNativeCast(video, url);
 
                 hls.on(Hls.Events.MANIFEST_PARSED, function () {
                     updateHlsQualityControl();
@@ -1328,6 +1498,7 @@ function initPlayer(videoUrl) {
     setTimeout(() => {
         setupPlayerTopActions();
         setupPlayerSurfaceToggle();
+        setupPlayerControlDensity();
         updateHlsQualityControl();
     }, 0);
 
@@ -1371,7 +1542,9 @@ function initPlayer(videoUrl) {
             // 退出全屏时清理计时器
             clearTimeout(hideTimer);
             unlockLandscapeOrientation();
+            restoreModalHome();
         }
+        setTimeout(updatePlayerControlDensity, 0);
     }
 
     // 播放器加载完成后初始隐藏工具栏
@@ -1379,6 +1552,7 @@ function initPlayer(videoUrl) {
         hideControls();
         setupPlayerTopActions();
         setupPlayerSurfaceToggle();
+        setupPlayerControlDensity();
         updateHlsQualityControl();
         setupProgressPreview();
     });
@@ -1401,6 +1575,7 @@ function initPlayer(videoUrl) {
         // 设置进度条点击监听
         setupPlayerTopActions();
         setupPlayerSurfaceToggle();
+        setupPlayerControlDensity();
         setupProgressBarPreciseClicks();
         setupProgressPreview();
         tryStartPlayback();
@@ -1546,6 +1721,52 @@ function showError(message) {
 
 function showResourceSwitchModal() {
     return showSwitchResourceModal();
+}
+
+function rememberModalHome(modal) {
+    if (!modal || modalHome.parent) return;
+    modalHome.parent = modal.parentNode;
+    modalHome.nextSibling = modal.nextSibling;
+}
+
+function moveModalToFullscreenHost(modal = document.getElementById('modal')) {
+    if (!modal) return;
+    rememberModalHome(modal);
+
+    const fullscreenHost = getPlayerFullscreenHost();
+    if (fullscreenHost && modal.parentNode !== fullscreenHost) {
+        fullscreenHost.appendChild(modal);
+        modal.classList.add('player-fullscreen-modal');
+        return;
+    }
+
+    if (!fullscreenHost) {
+        restoreModalHome(modal);
+    }
+}
+
+function restoreModalHome(modal = document.getElementById('modal')) {
+    if (!modal || !modalHome.parent) return;
+
+    if (modal.parentNode !== modalHome.parent) {
+        modalHome.parent.insertBefore(modal, modalHome.nextSibling);
+    }
+
+    modal.classList.remove('player-fullscreen-modal');
+    modalHome.parent = null;
+    modalHome.nextSibling = null;
+}
+
+function closeModal() {
+    const modal = document.getElementById('modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    const modalContent = document.getElementById('modalContent');
+    if (modalContent) {
+        modalContent.innerHTML = '';
+    }
+    restoreModalHome(modal);
 }
 
 // 更新集数信息
@@ -2332,6 +2553,7 @@ async function showSwitchResourceModal() {
     const modalTitle = document.getElementById('modalTitle');
     const modalContent = document.getElementById('modalContent');
 
+    moveModalToFullscreenHost(modal);
     modalTitle.innerHTML = `<span class="break-words">${currentVideoTitle}</span>`;
     modalContent.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;grid-column:1/-1;">正在加载资源列表...</div>';
     modal.classList.remove('hidden');
@@ -2459,7 +2681,7 @@ async function showSwitchResourceModal() {
 // 切换资源的函数
 async function switchToResource(sourceKey, vodId) {
     // 关闭模态框
-    document.getElementById('modal').classList.add('hidden');
+    closeModal();
     const resumePosition = getCurrentPlaybackPosition();
     if (resumePosition > 1) {
         saveCurrentProgress();

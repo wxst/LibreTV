@@ -222,6 +222,27 @@ div.player-loading-text {
     color: currentColor;
 }
 
+.player-fullscreen-modal {
+    z-index: 2147483646 !important;
+}
+
+@media (max-width: 640px) and (orientation: portrait) {
+    #player.mobile-portrait-compact-controls .art-controls-left .art-control,
+    #player.mobile-portrait-compact-controls .art-controls-right .art-control {
+        display: none !important;
+    }
+
+    #player.mobile-portrait-compact-controls .art-controls-right .art-control.art-control-setting,
+    #player.mobile-portrait-compact-controls .art-controls-right .art-control.art-control-pip,
+    #player.mobile-portrait-compact-controls .art-controls-right .art-control.art-control-fullscreen {
+        display: inline-flex !important;
+    }
+
+    #player.mobile-portrait-compact-controls .art-controls-right {
+        margin-left: auto !important;
+    }
+}
+
 .progress-preview {
     position: absolute;
     bottom: 70px;

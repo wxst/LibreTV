@@ -940,15 +940,21 @@ test('player autoplay fallback retries muted playback and source switching resum
   assert.match(player, /position=\$\{encodeURIComponent\(String\(Math\.floor\(resumePosition\)\)\)\}/);
 });
 
-test('player surface click, cast, fullscreen, and quality controls are wired', async () => {
+test('player cast, menu hotzone, fullscreen, and duplicate controls are wired', async () => {
   const player = await readProjectFile('js/player.js');
   const playerStyles = await readProjectFile('css/player.css');
+  const castHtml = await readProjectFile('cast.html');
+  const castReceiver = await readProjectFile('js/cast-receiver.js');
+  const sw = await readProjectFile('service-worker.js');
 
   assert.match(player, /function setupPlayerSurfaceToggle/);
   assert.match(player, /function shouldIgnorePlayerSurfaceToggle/);
   assert.match(player, /PLAYER_SURFACE_INTERACTIVE_SELECTOR/);
   assert.match(player, /clickTimer/);
   assert.match(player, /togglePlaybackFromSurface/);
+  assert.match(player, /\[class\*="art-setting"\]/);
+  assert.match(player, /\[class\*="art-selector"\]/);
+  assert.match(player, /\[class\*="art-contextmenu"\]/);
   assert.doesNotMatch(player, /art\.video\.addEventListener\('dblclick'/);
 
   assert.match(player, /function toggleFullscreenMode/);
@@ -958,13 +964,32 @@ test('player surface click, cast, fullscreen, and quality controls are wired', a
   assert.match(player, /screen\.orientation\.lock\('landscape'\)/);
   assert.match(player, /screen\.orientation\.unlock\(\)/);
 
+  assert.match(player, /function prepareVideoForNativeCast/);
+  assert.match(player, /video\.disableRemotePlayback\s*=\s*false/);
+  assert.match(player, /removeAttribute\('disableRemotePlayback'\)/);
+  assert.doesNotMatch(player, /disableRemotePlayback:\s*false/);
+  assert.match(player, /function startPresentationCast/);
+  assert.match(player, /new PresentationRequest/);
   assert.match(player, /function requestNativeCast/);
   assert.match(player, /video\.remote\.prompt\(\)/);
   assert.match(player, /webkitShowPlaybackTargetPicker/);
-  assert.match(player, /当前浏览器不支持投屏/);
   assert.match(player, /function setupPlayerTopActions/);
   assert.match(player, /player-top-actions/);
   assert.match(playerStyles, /\.player-top-actions/);
+  assert.match(player, /function updatePlayerControlDensity/);
+  assert.match(player, /mobile-portrait-compact-controls/);
+  assert.match(playerStyles, /mobile-portrait-compact-controls[\s\S]*art-controls-right \.art-control\.art-control-setting/);
+  assert.match(playerStyles, /mobile-portrait-compact-controls[\s\S]*art-controls-right \.art-control\.art-control-pip/);
+  assert.match(playerStyles, /mobile-portrait-compact-controls[\s\S]*art-controls-right \.art-control\.art-control-fullscreen/);
+  assert.match(player, /function moveModalToFullscreenHost/);
+  assert.match(player, /function restoreModalHome/);
+  assert.match(player, /player-fullscreen-modal/);
+  assert.match(playerStyles, /\.player-fullscreen-modal/);
+  assert.match(castHtml, /js\/cast-receiver\.js/);
+  assert.match(castReceiver, /function initCastReceiver/);
+  assert.match(castReceiver, /new Hls/);
+  assert.match(sw, /cast\.html/);
+  assert.match(sw, /js\/cast-receiver\.js/);
 
   assert.match(player, /function buildHlsQualityOptions/);
   assert.match(player, /function applyHlsQuality/);
@@ -975,6 +1000,11 @@ test('player surface click, cast, fullscreen, and quality controls are wired', a
   assert.match(player, /name:\s*'switch-resource'/);
   assert.match(player, /name:\s*'prev-episode'/);
   assert.match(player, /name:\s*'next-episode'/);
+  assert.doesNotMatch(player, /name:\s*'fullscreen-toggle'/);
+  assert.match(player, /pip:\s*true/);
+  assert.match(player, /airplay:\s*false/);
+  assert.match(player, /fullscreen:\s*true/);
+  assert.match(player, /fullscreenWeb:\s*false/);
 });
 
 test('first-run guidance and diagnostics page support public self-hosting', async () => {
@@ -1063,13 +1093,13 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.15');
-  assert.equal(lockJson.version, '1.2.15');
-  assert.equal(lockJson.packages[''].version, '1.2.15');
-  assert.match(config, /version:\s*'1\.2\.15'/);
-  assert.match(changelog, /1\.2\.15/);
-  assert.match(changelog, /about and privacy page GitHub repository link/);
-  assert.match(changelog, /privacy complaint contact email/);
+  assert.equal(packageJson.version, '1.2.16');
+  assert.equal(lockJson.version, '1.2.16');
+  assert.equal(lockJson.packages[''].version, '1.2.16');
+  assert.match(config, /version:\s*'1\.2\.16'/);
+  assert.match(changelog, /1\.2\.16/);
+  assert.match(changelog, /player control menu clicks/);
+  assert.match(changelog, /duplicate player controls/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });
