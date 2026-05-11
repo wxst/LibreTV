@@ -9,9 +9,12 @@ export async function onRequest(context) {
     let html = await response.text();
     
     // 处理普通密码
+    const configuredPasswordHash = (env.PASSWORD_HASH || "").trim().toLowerCase();
     const password = env.PASSWORD || "";
     let passwordHash = "";
-    if (password) {
+    if (/^[a-f0-9]{64}$/.test(configuredPasswordHash)) {
+      passwordHash = configuredPasswordHash;
+    } else if (password) {
       passwordHash = await sha256(password);
     }
     html = html.replace('window.__ENV__.PASSWORD = "{{PASSWORD}}";', 

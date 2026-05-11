@@ -15,6 +15,7 @@ const __dirname = path.dirname(__filename);
 const config = {
   port: process.env.PORT || 8080,
   password: process.env.PASSWORD || '',
+  passwordHash: process.env.PASSWORD_HASH || '',
   corsOrigin: process.env.CORS_ORIGIN || '*',
   timeout: parseInt(process.env.REQUEST_TIMEOUT || '5000'),
   maxRetries: parseInt(process.env.MAX_RETRIES || '2'),
@@ -118,6 +119,14 @@ function isValidUrl(urlString) {
   }
 }
 
+function getTargetReferer(targetUrl) {
+  const target = new URL(targetUrl);
+  if (target.hostname.endsWith('doubanio.com')) {
+    return 'https://movie.douban.com/';
+  }
+  return `${target.origin}/`;
+}
+
 // 验证代理请求的鉴权
 function validateProxyAuth(req) {
   const authHash = req.query.auth;
@@ -125,15 +134,28 @@ function validateProxyAuth(req) {
   
   // 获取服务器端密码哈希
   const serverPassword = config.password;
-  if (!serverPassword) {
+  const configuredPasswordHash = config.passwordHash.trim().toLowerCase();
+  const acceptedHashes = new Set();
+
+  if (/^[a-f0-9]{64}$/.test(configuredPasswordHash)) {
+    acceptedHashes.add(configuredPasswordHash);
+  }
+
+  if (!serverPassword && acceptedHashes.size === 0) {
     console.error('服务器未设置 PASSWORD 环境变量，代理访问被拒绝');
     return false;
   }
   
   // 使用 crypto 模块计算 SHA-256 哈希
   const serverPasswordHash = crypto.createHash('sha256').update(serverPassword).digest('hex');
+  if (serverPassword) {
+    acceptedHashes.add(serverPasswordHash);
+    if (/^[a-f0-9]{64}$/i.test(serverPassword)) {
+      acceptedHashes.add(serverPassword.toLowerCase());
+    }
+  }
   
-  if (!authHash || authHash !== serverPasswordHash) {
+  if (!authHash || !acceptedHashes.has(authHash.toLowerCase())) {
     console.warn('代理请求鉴权失败：密码哈希不匹配');
     console.warn(`期望: ${serverPasswordHash}, 收到: ${authHash}`);
     return false;
@@ -184,7 +206,9 @@ app.get('/proxy/:encodedUrl', async (req, res) => {
           responseType: 'stream',
           timeout: config.timeout,
           headers: {
-            'User-Agent': config.userAgent
+            'User-Agent': config.userAgent,
+            'Referer': getTargetReferer(targetUrl),
+            'Accept': '*/*'
           }
         });
       } catch (error) {

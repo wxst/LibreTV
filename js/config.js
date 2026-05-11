@@ -17,8 +17,79 @@ const SITE_CONFIG = {
     url: 'https://libretv.is-an.org',
     description: '免费在线视频搜索与观看平台',
     logo: 'image/logo.png',
-    version: '1.0.3'
+    version: '1.1.1'
 };
+
+const DEFAULT_SELECTED_APIS = ['ysgc'];
+const DEFAULT_API_MIGRATION_KEY = 'defaultApiMigrationVersion';
+const DEFAULT_API_MIGRATION_VERSION = '20260511-ysgc';
+
+function escapeHtmlAttr(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function normalizeImageUrl(rawUrl, baseUrl = '') {
+    const value = String(rawUrl || '').trim();
+    if (!value) return '';
+
+    if (value.startsWith('//')) {
+        return `https:${value}`;
+    }
+
+    if (/^https?:\/\//i.test(value)) {
+        return value;
+    }
+
+    if (baseUrl) {
+        try {
+            return new URL(value, baseUrl).toString();
+        } catch (error) {
+            console.warn('图片地址规范化失败:', value, error);
+        }
+    }
+
+    return '';
+}
+
+function createImagePlaceholder(text = '无封面') {
+    const safeText = String(text || '无封面').slice(0, 12);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450"><rect width="300" height="450" fill="#111827"/><path d="M75 170h150v110H75z" fill="#1f2937" stroke="#4b5563" stroke-width="4"/><path d="m95 252 43-48 32 36 23-26 32 38" fill="none" stroke="#6b7280" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="197" cy="200" r="13" fill="#6b7280"/><text x="150" y="325" fill="#9ca3af" font-size="28" text-anchor="middle" font-family="Arial, sans-serif">${safeText}</text></svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function setImagePlaceholder(img, text = '无封面') {
+    if (!img) return;
+    img.onerror = null;
+    img.src = createImagePlaceholder(text);
+    img.classList.add('object-contain');
+}
+
+async function setImageProxyFallback(img, originalUrl, fallbackText = '无封面') {
+    if (!img) return;
+
+    const normalizedUrl = normalizeImageUrl(originalUrl);
+    if (!normalizedUrl || img.dataset.proxyFallbackTried === 'true') {
+        setImagePlaceholder(img, fallbackText);
+        return;
+    }
+
+    img.dataset.proxyFallbackTried = 'true';
+
+    try {
+        const proxyUrl = PROXY_URL + encodeURIComponent(normalizedUrl);
+        img.src = window.ProxyAuth?.addAuthToProxyUrl
+            ? await window.ProxyAuth.addAuthToProxyUrl(proxyUrl)
+            : proxyUrl;
+    } catch (error) {
+        console.warn('图片代理回退失败:', normalizedUrl, error);
+        setImagePlaceholder(img, fallbackText);
+    }
+}
 
 // API站点配置
 const API_SITES = {
@@ -38,6 +109,13 @@ function extendAPISites(newSites) {
 // 暴露到全局
 window.API_SITES = API_SITES;
 window.extendAPISites = extendAPISites;
+window.DEFAULT_SELECTED_APIS = DEFAULT_SELECTED_APIS;
+window.DEFAULT_API_MIGRATION_KEY = DEFAULT_API_MIGRATION_KEY;
+window.DEFAULT_API_MIGRATION_VERSION = DEFAULT_API_MIGRATION_VERSION;
+window.escapeHtmlAttr = escapeHtmlAttr;
+window.normalizeImageUrl = normalizeImageUrl;
+window.setImageProxyFallback = setImageProxyFallback;
+window.setImagePlaceholder = setImagePlaceholder;
 
 
 // 添加聚合搜索的配置选项

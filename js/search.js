@@ -18,6 +18,14 @@ async function searchByAPIAndKeyWord(apiId, query) {
             apiUrl = apiBaseUrl + API_CONFIG.search.path + encodeURIComponent(query);
             apiName = API_SITES[apiId].name;
         }
+
+        const withSourceInfo = item => ({
+            ...item,
+            vod_pic: normalizeImageUrl(item.vod_pic, apiBaseUrl),
+            source_name: apiName,
+            source_code: apiId,
+            api_url: apiId.startsWith('custom_') ? getCustomApiInfo(apiId.replace('custom_', ''))?.url : undefined
+        });
         
         // 添加超时处理
         const controller = new AbortController();
@@ -46,12 +54,7 @@ async function searchByAPIAndKeyWord(apiId, query) {
         }
         
         // 处理第一页结果
-        const results = data.list.map(item => ({
-            ...item,
-            source_name: apiName,
-            source_code: apiId,
-            api_url: apiId.startsWith('custom_') ? getCustomApiInfo(apiId.replace('custom_', ''))?.url : undefined
-        }));
+        const results = data.list.map(withSourceInfo);
         
         // 获取总页数
         const pageCount = data.pagecount || 1;
@@ -93,12 +96,7 @@ async function searchByAPIAndKeyWord(apiId, query) {
                         if (!pageData || !pageData.list || !Array.isArray(pageData.list)) return [];
                         
                         // 处理当前页结果
-                        return pageData.list.map(item => ({
-                            ...item,
-                            source_name: apiName,
-                            source_code: apiId,
-                            api_url: apiId.startsWith('custom_') ? getCustomApiInfo(apiId.replace('custom_', ''))?.url : undefined
-                        }));
+                        return pageData.list.map(withSourceInfo);
                     } catch (error) {
                         console.warn(`API ${apiId} 第${page}页搜索失败:`, error);
                         return [];
