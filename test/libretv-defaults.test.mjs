@@ -167,16 +167,43 @@ test('PWA registration handles failures and app updates safely', async () => {
   assert.match(registration, /controllerchange/);
 });
 
+test('public maintenance governance docs and CI are present', async () => {
+  const readme = await readProjectFile('README.md');
+  const changelog = await readProjectFile('CHANGELOG.md');
+  const roadmap = await readProjectFile('ROADMAP.md');
+  const contributing = await readProjectFile('CONTRIBUTING.md');
+  const prTemplate = await readProjectFile('.github/pull_request_template.md');
+  const bugTemplate = await readProjectFile('.github/ISSUE_TEMPLATE/bug_report.yml');
+  const featureTemplate = await readProjectFile('.github/ISSUE_TEMPLATE/feature_request.yml');
+  const ci = await readProjectFile('.github/workflows/ci.yml');
+
+  assert.match(readme, /维护续作/);
+  assert.match(readme, /https:\/\/libretv-4vs\.pages\.dev/);
+  assert.match(readme, /Cloudflare Pages/);
+  assert.match(readme, /PWA/);
+  assert.match(readme, /每次用户可见变更/);
+  assert.match(changelog, /1\.1\.5/);
+  assert.match(changelog, /公开维护基础/);
+  assert.match(roadmap, /源健康检查/);
+  assert.match(roadmap, /诊断页/);
+  assert.match(contributing, /Apache-2\.0/);
+  assert.match(prTemplate, /版本号/);
+  assert.match(bugTemplate, /部署平台/);
+  assert.match(featureTemplate, /维护路线图/);
+  assert.match(ci, /npm test/);
+  assert.match(ci, /node --check/);
+});
+
 test('release metadata is bumped for this update', async () => {
   const packageJson = JSON.parse(await readProjectFile('package.json'));
   const lockJson = JSON.parse(await readProjectFile('package-lock.json'));
   const config = await readProjectFile('js/config.js');
   const versionTxt = (await readProjectFile('VERSION.txt')).trim();
 
-  assert.equal(packageJson.version, '1.1.4');
-  assert.equal(lockJson.version, '1.1.4');
-  assert.equal(lockJson.packages[''].version, '1.1.4');
-  assert.match(config, /version:\s*'1\.1\.4'/);
+  assert.equal(packageJson.version, '1.1.5');
+  assert.equal(lockJson.version, '1.1.5');
+  assert.equal(lockJson.packages[''].version, '1.1.5');
+  assert.match(config, /version:\s*'1\.1\.5'/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test and static checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check js/config.js
+          node --check js/customer_site.js
+          node --check js/api.js
+          node --check js/search.js
+          node --check js/app.js
+          node --check js/player.js
+          node --check js/pwa-register.js
+          node --check service-worker.js
+          node --check server.mjs
+
+      - name: Check whitespace
+        run: git diff --check -- . ':(exclude)package-lock.json'

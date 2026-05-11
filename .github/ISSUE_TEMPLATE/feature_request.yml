@@ -1,34 +1,52 @@
-name: Feature request / 功能请求
-description: "Suggest an idea for this project"
-title: "[Feature Request]"
+name: Feature request
+description: Propose a feature aligned with the maintenance roadmap
+title: "[Feature] "
 labels: ["enhancement"]
 body:
   - type: checkboxes
     id: confirm
     attributes:
-      label: Confirm / 确认
-      description: Please confirm / 请你确认
+      label: Confirmations
       options:
-        - label: I have searched the Issue and found no related feature requests / 我已经搜索过Issue，没有找到相关的功能请求
+        - label: I searched existing issues and did not find the same request.
           required: true
-  - type: textarea
-    id: description
+        - label: I checked the maintenance roadmap in ROADMAP.md.
+          required: true
+        - label: This request does not require storing, uploading, redistributing, or caching video content.
+          required: true
+  - type: dropdown
+    id: roadmap
     attributes:
-      label: Feature Description / 功能描述
-      description: Describe the feature you want / 描述你想要的功能
+      label: 维护路线图 area
+      options:
+        - Source reliability
+        - Playback reliability
+        - Public self-hosting experience
+        - Diagnostics
+        - PWA / install experience
+        - Architecture cleanup
+        - Documentation / maintenance
+        - Other
     validations:
       required: true
   - type: textarea
-    id: how_to
+    id: problem
     attributes:
-      label: How to Implement / 如何实现
-      description: How to implement this feature / 应该如何实现这个功能
+      label: Problem
+      description: What user or maintainer problem does this solve?
     validations:
-      required: false
+      required: true
   - type: textarea
-    id: additional_context
+    id: proposal
     attributes:
-      label: Additional Information / 附加信息
-      description: Any other information you think might be helpful to implement this feature / 你觉得对实现此功能有帮助的其它信息
+      label: Proposal
+      description: Describe the smallest useful version of the feature.
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Tradeoffs
+      description: Mention compatibility, deployment, legal, or maintenance risks if known.
     validations:
       required: false
