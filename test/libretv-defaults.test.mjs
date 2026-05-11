@@ -212,8 +212,10 @@ test('public deployment URLs are not exposed in current tracked files', async ()
     'ROADMAP.md',
     'MIGRATION.md',
     'docs/UPSTREAM_OUTREACH.md',
+    'docs/SEO_AND_INTAKE.md',
     '.github/release-notes/v1.2.5.md',
     '.github/release-notes/v1.2.6.md',
+    '.github/release-notes/v1.2.7.md',
     'index.html',
     'js/config.js',
     'manifest.json',
@@ -230,23 +232,39 @@ test('GitHub outreach keeps migration repository-only and self-hosted', async ()
   const readme = await readProjectFile('README.md');
   const migration = await readProjectFile('MIGRATION.md');
   const outreach = await readProjectFile('docs/UPSTREAM_OUTREACH.md');
+  const seo = await readProjectFile('docs/SEO_AND_INTAKE.md');
+  const migrationTemplate = await readProjectFile('.github/ISSUE_TEMPLATE/migration_support.yml');
+  const issueConfig = await readProjectFile('.github/ISSUE_TEMPLATE/config.yml');
   const releaseNotes = await readProjectFile('.github/release-notes/v1.2.5.md');
   const archiveReleaseNotes = await readProjectFile('.github/release-notes/v1.2.6.md');
+  const intakeReleaseNotes = await readProjectFile('.github/release-notes/v1.2.7.md');
 
   assert.match(readme, /MIGRATION\.md/);
+  assert.match(readme, /LibreSpark\/LibreTV/);
+  assert.match(readme, /MacCMS VOD API/);
+  assert.match(readme, /GitHub Discussions/);
+  assert.match(readme, /GitHub Issues/);
   assert.match(readme, /不提供公开演示站点/);
   assert.match(migration, /上游 LibreTV/);
+  assert.match(migration, /wxst\/LibreTV\/issues/);
   assert.match(migration, /不运营公开影视服务/);
   assert.match(outreach, /只链接 GitHub 仓库/);
   assert.match(outreach, /每个 issue 最多回复一次/);
   assert.match(outreach, /不链接任何公开部署站点/);
   assert.match(outreach, /archived\/read-only/);
   assert.match(outreach, /本仓库 Discussions/);
+  assert.match(seo, /LibreSpark\/LibreTV archived fork/);
+  assert.match(seo, /Issues：只承接可复现 bug/);
+  assert.match(migrationTemplate, /Upstream migration support/);
+  assert.match(migrationTemplate, /Do not include passwords/);
+  assert.match(issueConfig, /Upstream migration discussion/);
   assert.match(releaseNotes, /LibreTV Revival baseline/);
   assert.match(releaseNotes, /不提供公开演示站点/);
   assert.match(releaseNotes, /PASSWORD/);
   assert.match(archiveReleaseNotes, /archived upstream repository is read-only/);
   assert.match(archiveReleaseNotes, /Discussions/);
+  assert.match(intakeReleaseNotes, /GitHub search and migration intake/);
+  assert.match(intakeReleaseNotes, /Issues/);
 });
 
 test('public maintenance governance docs and CI are present', async () => {
@@ -257,6 +275,7 @@ test('public maintenance governance docs and CI are present', async () => {
   const prTemplate = await readProjectFile('.github/pull_request_template.md');
   const bugTemplate = await readProjectFile('.github/ISSUE_TEMPLATE/bug_report.yml');
   const featureTemplate = await readProjectFile('.github/ISSUE_TEMPLATE/feature_request.yml');
+  const migrationTemplate = await readProjectFile('.github/ISSUE_TEMPLATE/migration_support.yml');
   const ci = await readProjectFile('.github/workflows/ci.yml');
   const gitignore = await readProjectFile('.gitignore');
 
@@ -272,6 +291,7 @@ test('public maintenance governance docs and CI are present', async () => {
   assert.match(prTemplate, /版本号/);
   assert.match(bugTemplate, /部署平台/);
   assert.match(featureTemplate, /维护路线图/);
+  assert.match(migrationTemplate, /LibreSpark\/LibreTV/);
   assert.match(ci, /npm test/);
   assert.match(ci, /node --check/);
   assert.match(gitignore, /^agent\.md$/m);
@@ -407,12 +427,12 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.6');
-  assert.equal(lockJson.version, '1.2.6');
-  assert.equal(lockJson.packages[''].version, '1.2.6');
-  assert.match(config, /version:\s*'1\.2\.6'/);
-  assert.match(changelog, /1\.2\.6/);
-  assert.match(changelog, /read-only/);
+  assert.equal(packageJson.version, '1.2.7');
+  assert.equal(lockJson.version, '1.2.7');
+  assert.equal(lockJson.packages[''].version, '1.2.7');
+  assert.match(config, /version:\s*'1\.2\.7'/);
+  assert.match(changelog, /1\.2\.7/);
+  assert.match(changelog, /migration intake/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

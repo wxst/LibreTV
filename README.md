@@ -4,6 +4,8 @@
 
 LibreTV 是一个轻量级的在线视频搜索与观看工具，适合个人学习、自部署和私有使用。本仓库是对已归档上游 [LibreSpark/LibreTV](https://github.com/LibreSpark/LibreTV) 的维护续作，重点放在可部署、可维护、可验证，而不是运营公开影视服务。
 
+English positioning for GitHub search: LibreTV Revival is a maintained self-hosted fork of archived LibreSpark/LibreTV, focused on Cloudflare Pages, Pages Functions proxy, PWA installability, MacCMS VOD API sources, source health checks, diagnostics, and playback URL fixes.
+
 当前维护版已经修复和补齐：
 
 - Cloudflare Pages 根目录静态部署与 Pages Functions 代理。
@@ -15,6 +17,15 @@ LibreTV 是一个轻量级的在线视频搜索与观看工具，适合个人学
 - 自动化测试和版本规则。
 
 如果你来自上游仓库，建议先阅读 [MIGRATION.md](MIGRATION.md)。它覆盖没源、不能播放、Cloudflare Pages、密码和代理等常见迁移问题。本仓库只把用户导向代码和文档，不提供公开演示站点。
+
+## 上游迁移入口
+
+- 迁移 FAQ: [MIGRATION.md](MIGRATION.md)
+- 讨论入口: [GitHub Discussions](https://github.com/wxst/LibreTV/discussions/9)
+- 可复现问题: [GitHub Issues](https://github.com/wxst/LibreTV/issues)
+- 最新版本: [GitHub Releases](https://github.com/wxst/LibreTV/releases)
+
+建议先在 Discussions 里确认部署、源和代理配置问题；确认是代码缺陷后再开 Issue。提交问题时不要粘贴密码、令牌、私人源、完整代理链接或公开视频实例地址。
 
 ## 重要声明
 
@@ -135,7 +146,7 @@ PWA 相关文件：
 2. 已完成源健康检查：检测搜索、详情、m3u8 可用性。
 3. 已完成播放错误体验：区分源失效、代理失败、浏览器不支持等。
 4. 已完成首次使用和诊断页：帮助自部署用户发现环境问题。
-5. 正在做 GitHub 仓库优先的低风险引流：上游归档只读时，通过仓库元数据、release 和本仓库 Discussions 承接迁移用户；若上游线程可回复，只在相关 issue 中透明说明维护 fork。
+5. 正在做 GitHub 仓库优先的低风险引流：上游归档只读时，通过仓库元数据、release、本仓库 Discussions 和 Issues 承接迁移用户；若上游线程可回复，只在相关 issue 中透明说明维护 fork。
 
 ## 开发检查
 

@@ -17,6 +17,7 @@
 - 本仓库 description、topics 和 README。
 - GitHub Release。
 - 本仓库 Discussions 的迁移入口。
+- 本仓库 Issues 的可复现问题入口。
 - 其他社区渠道，但仍只链接仓库和文档。
 
 ## 优先目标
@@ -54,4 +55,4 @@
 
 ## 节奏
 
-发布一次稳定 release 后，优先确认上游 issue 是否允许回复。如果上游仍然只读，则不再重试评论，改为观察 release、Discussions、star、fork 和搜索流量。只有在线程允许回复时，才选择 3 到 5 个高度相关的上游 issue 做第一批透明回复，并观察 48 到 72 小时的反馈质量。
+发布一次稳定 release 后，优先确认上游 issue 是否允许回复。如果上游仍然只读，则不再重试评论，改为观察 release、Discussions、Issues、star、fork 和搜索流量。只有在线程允许回复时，才选择 3 到 5 个高度相关的上游 issue 做第一批透明回复，并观察 48 到 72 小时的反馈质量。
