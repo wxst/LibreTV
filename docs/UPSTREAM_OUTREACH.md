@@ -10,6 +10,15 @@
 - 只链接 GitHub 仓库、README、MIGRATION 或 release，不链接任何公开部署站点。
 - 不使用成人源作为宣传点；如被问到，只说明可选源支持源分类和默认禁用策略。
 
+## 当前上游状态
+
+`LibreSpark/LibreTV` 已归档，issue 线程可能处于只读状态。2026-05-11 已验证上游 issue 回复会被 GitHub 拒绝，错误原因是 archived/read-only。遇到这种情况不要重复尝试刷评论，改用以下入口承接用户：
+
+- 本仓库 description、topics 和 README。
+- GitHub Release。
+- 本仓库 Discussions 的迁移入口。
+- 其他社区渠道，但仍只链接仓库和文档。
+
 ## 优先目标
 
 - 没源、源失效、搜索失败。
@@ -45,4 +54,4 @@
 
 ## 节奏
 
-发布一次稳定 release 后，先选择 3 到 5 个高度相关的上游 issue 回复。观察 48 到 72 小时的 star、fork、issue 和反馈质量，再决定是否继续扩大到更多 issue 或社区帖子。
+发布一次稳定 release 后，优先确认上游 issue 是否允许回复。如果上游仍然只读，则不再重试评论，改为观察 release、Discussions、star、fork 和搜索流量。只有在线程允许回复时，才选择 3 到 5 个高度相关的上游 issue 做第一批透明回复，并观察 48 到 72 小时的反馈质量。

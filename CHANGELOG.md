@@ -2,6 +2,13 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.6 - 2026-05-11
+
+### Changed
+
+- Clarified the GitHub outreach runbook after verifying the archived upstream repository is read-only and cannot accept new issue comments.
+- Updated README outreach wording to route migration users through repository metadata, releases, and this repository's Discussions when upstream issue replies are blocked.
+
 ## 1.2.5 - 2026-05-11
 
 ### Added
