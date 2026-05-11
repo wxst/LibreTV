@@ -45,6 +45,20 @@ test('verified customer API sources are available and invalid placeholders are r
   assert.equal(window.API_SITES.hhzy.api, 'https://hhzyapi.com/api.php/provide/vod');
   assert.equal(window.API_SITES.p2100.api, 'https://p2100.net/api.php/provide/vod');
   assert.equal(window.API_SITES.uku.api, 'https://api.ukuapi88.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.ckzy.adult, true);
+  assert.equal(window.API_SITES.ckzy.api, 'https://www.ckzy1.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.jkun.adult, true);
+  assert.equal(window.API_SITES.jkun.api, 'https://jkunzyapi.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.bwzy.adult, true);
+  assert.equal(window.API_SITES.bwzy.api, 'https://api.bwzyz.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.r155.adult, true);
+  assert.equal(window.API_SITES.r155.api, 'https://155api.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.huangcang.adult, true);
+  assert.equal(window.API_SITES.huangcang.api, 'https://hsckzy.vip/api.php/provide/vod');
+  assert.equal(window.API_SITES.yutu.adult, true);
+  assert.equal(window.API_SITES.yutu.api, 'https://yutuzy10.com/api.php/provide/vod');
+  assert.equal(window.API_SITES.siwa.adult, true);
+  assert.equal(window.API_SITES.siwa.api, 'https://siwazyw.tv/api.php/provide/vod');
   assert.equal(window.API_SITES.qiqi, undefined);
   assert.equal(window.API_SITES.testSource, undefined);
   assert.deepEqual(Array.from(window.DEFAULT_SELECTED_APIS), ['ysgc', 'jszy', 'wujin', 'maoyan']);
@@ -366,11 +380,11 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.3');
-  assert.equal(lockJson.version, '1.2.3');
-  assert.equal(lockJson.packages[''].version, '1.2.3');
-  assert.match(config, /version:\s*'1\.2\.3'/);
-  assert.match(changelog, /1\.2\.3/);
+  assert.equal(packageJson.version, '1.2.4');
+  assert.equal(lockJson.version, '1.2.4');
+  assert.equal(lockJson.packages[''].version, '1.2.4');
+  assert.match(config, /version:\s*'1\.2\.4'/);
+  assert.match(changelog, /1\.2\.4/);
   assert.match(changelog, /源健康/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);

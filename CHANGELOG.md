@@ -2,6 +2,12 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.4 - 2026-05-11
+
+### Added
+
+- Added verified optional adult API sources from upstream PR triage; they are marked `adult: true` and remain disabled by default.
+
 ## 1.2.3 - 2026-05-11
 
 ### Added
