@@ -2,6 +2,13 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.3 - 2026-05-11
+
+### Added
+
+- Imported useful upstream PR learnings: optional Docker outbound proxy support via `PROXY_URL`.
+- Added verified optional API sources from post-maintenance upstream PRs while keeping the default selected sources unchanged.
+
 ## 1.2.2 - 2026-05-11
 
 ### Changed

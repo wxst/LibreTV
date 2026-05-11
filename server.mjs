@@ -160,7 +160,14 @@ function validateProxyAuth(req) {
   
   if (!authHash || !acceptedHashes.has(authHash.toLowerCase())) {
     console.warn('代理请求鉴权失败：密码哈希不匹配');
-    console.warn(`期望: ${serverPasswordHash}, 收到: ${authHash}`);
+    if (config.debug) {
+      console.debug('代理请求鉴权失败：参数摘要', {
+        hasAuth: Boolean(authHash),
+        authLength: authHash ? String(authHash).length : 0,
+        configuredHashLength: configuredPasswordHash.length,
+        acceptedHashCandidates: acceptedHashes.size
+      });
+    }
     return false;
   }
   
