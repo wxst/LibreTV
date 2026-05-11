@@ -2,6 +2,18 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.7 - 2026-05-11
+
+### Added
+
+- Added GitHub search and migration intake documentation for repository-only outreach.
+- Added an upstream migration issue template and issue/discussion entry points for users coming from archived LibreSpark/LibreTV.
+- Added release notes for the GitHub search and migration intake update.
+
+### Changed
+
+- Strengthened README search positioning for LibreTV Revival as a maintained self-hosted fork of archived LibreSpark/LibreTV.
+
 ## 1.2.6 - 2026-05-11
 
 ### Changed
