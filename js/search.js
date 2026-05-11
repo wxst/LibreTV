@@ -1,3 +1,49 @@
+const SEARCH_RESULT_TITLE_FIELDS = [
+    'vod_name',
+    'vod_sub',
+    'vod_en',
+    'title',
+    'name'
+];
+
+function normalizeSearchResultText(value) {
+    return String(value || '').toLowerCase().replace(/\s+/g, '');
+}
+
+function getSearchResultTitleTexts(item) {
+    return SEARCH_RESULT_TITLE_FIELDS
+        .map(field => normalizeSearchResultText(item?.[field]))
+        .filter(Boolean);
+}
+
+function doesSearchResultMatchQuery(item, query) {
+    const compactQuery = normalizeSearchResultText(query);
+    if (!compactQuery) return true;
+
+    const titleTexts = getSearchResultTitleTexts(item);
+    if (titleTexts.some(text => text.includes(compactQuery))) {
+        return true;
+    }
+
+    const queryTerms = String(query || '')
+        .toLowerCase()
+        .split(/\s+/)
+        .map(normalizeSearchResultText)
+        .filter(Boolean);
+
+    return queryTerms.length > 1 && queryTerms.every(term =>
+        titleTexts.some(text => text.includes(term))
+    );
+}
+
+function filterSearchResultsByQuery(results, query) {
+    const list = Array.isArray(results) ? results : [];
+    return list.filter(item => doesSearchResultMatchQuery(item, query));
+}
+
+window.doesResultMatchQuery = window.doesResultMatchQuery || doesSearchResultMatchQuery;
+window.filterResultsByQuery = window.filterResultsByQuery || filterSearchResultsByQuery;
+
 function getApiSearchContext(apiId) {
     if (apiId.startsWith('custom_')) {
         const customIndex = apiId.replace('custom_', '');
@@ -75,7 +121,7 @@ async function searchByAPIAndKeyWord(apiId, query) {
         
         // 处理第一页结果
         const firstPageResults = normalizeApiList(data, apiId, context);
-        const results = filterResultsByQuery(firstPageResults, query);
+        const results = filterSearchResultsByQuery(firstPageResults, query);
         if (firstPageResults.length > 0 && results.length === 0) {
             return [];
         }
@@ -103,7 +149,7 @@ async function searchByAPIAndKeyWord(apiId, query) {
                         if (!pageData || !pageData.list || !Array.isArray(pageData.list)) return [];
                         
                         // 处理当前页结果
-                        return filterResultsByQuery(normalizeApiList(pageData, apiId, context), query);
+                        return filterSearchResultsByQuery(normalizeApiList(pageData, apiId, context), query);
                     } catch (error) {
                         console.warn(`API ${apiId} 第${page}页搜索失败:`, error);
                         return [];

@@ -2,6 +2,14 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.13 - 2026-05-12
+
+### Fixed
+
+- Fixed player resource switching after search relevance helpers moved out of the player page load path.
+- Player resource switching now falls back to the default selected sources when no local source selection exists.
+- Added empty-state handling when no switchable resources are found.
+
 ## 1.2.12 - 2026-05-12
 
 ### Changed

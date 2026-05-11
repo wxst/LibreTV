@@ -667,6 +667,56 @@ test('search results require title relevance and ignored sources do not paginate
   assert.equal(requestedUrls.some(url => url.includes('pg=2')), false);
 });
 
+test('player resource switch can search without loading homepage app script', async () => {
+  const requestedUrls = [];
+  const warnings = [];
+  const sandbox = {
+    console: {
+      ...console,
+      warn(...args) {
+        warnings.push(args.map(String).join(' '));
+      }
+    },
+    URL,
+    window: {},
+    fetch: async url => {
+      requestedUrls.push(decodeURIComponent(String(url)));
+      return {
+        ok: true,
+        async json() {
+          return {
+            pagecount: 1,
+            list: [
+              { vod_id: 'match-1', vod_name: '世界的主人', vod_pic: '/poster.jpg' },
+              { vod_id: 'noise-1', vod_name: '美女主播私拍' }
+            ]
+          };
+        }
+      };
+    },
+    setTimeout,
+    clearTimeout,
+    AbortController
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/config.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/customer_site.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/search.js'), sandbox);
+  const player = await readProjectFile('js/player.js');
+
+  assert.equal(typeof sandbox.searchByAPIAndKeyWord, 'function');
+  assert.equal(typeof sandbox.window.filterResultsByQuery, 'function');
+  assert.match(player, /JSON\.stringify\(DEFAULT_SELECTED_APIS\)/);
+  assert.match(player, /Promise\.allSettled\(resourceOptions\.map/);
+  assert.match(player, /未找到可切换资源/);
+
+  const results = await sandbox.searchByAPIAndKeyWord('ysgc', '世界的主人');
+
+  assert.deepEqual(Array.from(results).map(item => item.vod_id), ['match-1']);
+  assert.equal(requestedUrls.some(url => url.includes('cj.lziapi.com')), true);
+  assert.equal(warnings.some(message => message.includes('filterResultsByQuery')), false);
+});
+
 test('adult recommendation tag uses selected adult sources instead of Douban', async () => {
   const storage = new Map([
     ['yellowFilterEnabled', 'false'],
@@ -966,12 +1016,12 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.12');
-  assert.equal(lockJson.version, '1.2.12');
-  assert.equal(lockJson.packages[''].version, '1.2.12');
-  assert.match(config, /version:\s*'1\.2\.12'/);
-  assert.match(changelog, /1\.2\.12/);
-  assert.match(changelog, /播放器|ArtPlayer|hls\.js/);
+  assert.equal(packageJson.version, '1.2.13');
+  assert.equal(lockJson.version, '1.2.13');
+  assert.equal(lockJson.packages[''].version, '1.2.13');
+  assert.match(config, /version:\s*'1\.2\.13'/);
+  assert.match(changelog, /1\.2\.13/);
+  assert.match(changelog, /resource switching|资源切换|switchable resources/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

@@ -1,4 +1,4 @@
-const selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || '[]');
+const selectedAPIs = JSON.parse(localStorage.getItem('selectedAPIs') || JSON.stringify(DEFAULT_SELECTED_APIS));
 const customAPIs = JSON.parse(localStorage.getItem('customAPIs') || '[]'); // 存储自定义API列表
 
 // 改进返回功能
@@ -2010,10 +2010,16 @@ async function showSwitchResourceModal() {
         }
         return { key: curr, name: '未知资源' };
     });
+
+    if (resourceOptions.length === 0) {
+        modalContent.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;grid-column:1/-1;">暂无可切换的数据源，请先到设置中选择数据源。</div>';
+        return;
+    }
+
     let allResults = {};
-    await Promise.all(resourceOptions.map(async (opt) => {
-        let queryResult = await searchByAPIAndKeyWord(opt.key, currentVideoTitle);
-        if (queryResult.length == 0) {
+    await Promise.allSettled(resourceOptions.map(async (opt) => {
+        const queryResult = await searchByAPIAndKeyWord(opt.key, currentVideoTitle);
+        if (!Array.isArray(queryResult) || queryResult.length === 0) {
             return 
         }
         // 优先取完全同名资源，否则默认取第一个
@@ -2025,6 +2031,11 @@ async function showSwitchResourceModal() {
         })
         allResults[opt.key] = result;
     }));
+
+    if (Object.keys(allResults).length === 0) {
+        modalContent.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;grid-column:1/-1;">未找到可切换资源，请稍后重试或更换片名搜索。</div>';
+        return;
+    }
 
     // 更新状态显示：开始速率测试
     modalContent.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;grid-column:1/-1;">正在测试各资源速率...</div>';
