@@ -172,6 +172,7 @@ test('public deployment URLs are not exposed in current tracked files', async ()
     'README.md',
     'CHANGELOG.md',
     'ROADMAP.md',
+    'agent.md',
     'index.html',
     'js/config.js',
     'manifest.json',
@@ -213,6 +214,7 @@ test('public maintenance governance docs and CI are present', async () => {
 test('maintenance automation avoids direct main pushes and public preview workflows', async () => {
   const readme = await readProjectFile('README.md');
   const contributing = await readProjectFile('CONTRIBUTING.md');
+  const agentNotes = await readProjectFile('agent.md');
   const workflowDir = path.join(rootDir, '.github/workflows');
   const workflowFiles = await readdir(workflowDir);
   const workflowText = (await Promise.all(
@@ -223,6 +225,10 @@ test('maintenance automation avoids direct main pushes and public preview workfl
   assert.match(readme, /Preview deployments 设置为 `None`/);
   assert.match(readme, /`main` 只作为通过 CI 后的生产部署分支/);
   assert.match(contributing, /Do not push directly to `main`/);
+  assert.match(agentNotes, /Do not work directly on `main`/);
+  assert.match(agentNotes, /Test and static checks/);
+  assert.match(agentNotes, /Preview deployments are disabled/);
+  assert.match(agentNotes, /Do not expose public validation URLs/);
   assert.doesNotMatch(workflowText, /git push origin main|target_sync_branch:\s*main|pull_request_target/);
 });
 
@@ -340,11 +346,11 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.1');
-  assert.equal(lockJson.version, '1.2.1');
-  assert.equal(lockJson.packages[''].version, '1.2.1');
-  assert.match(config, /version:\s*'1\.2\.1'/);
-  assert.match(changelog, /1\.2\.1/);
+  assert.equal(packageJson.version, '1.2.2');
+  assert.equal(lockJson.version, '1.2.2');
+  assert.equal(lockJson.packages[''].version, '1.2.2');
+  assert.match(config, /version:\s*'1\.2\.2'/);
+  assert.match(changelog, /1\.2\.2/);
   assert.match(changelog, /源健康/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
