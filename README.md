@@ -42,7 +42,8 @@ npm run dev
 4. 在 Pages 环境变量中设置：
    - `PASSWORD`：普通密码，部署端会注入前端并用于代理鉴权。
    - 或 `PASSWORD_HASH`：SHA-256 哈希形式，适合不暴露明文密码的部署。
-5. 部署后检查：
+5. 如果不想暴露非生产预览入口，将 Preview deployments 设置为 `None`，并关闭 PR comments。
+6. 部署后检查：
    - `/VERSION.txt`
    - `/manifest.json`
    - `/service-worker.js`
@@ -149,6 +150,7 @@ git diff --check -- . ':(exclude)package-lock.json'
 ```
 
 CI 会在 push 和 pull request 上运行测试、JS 语法检查和基础静态检查。
+公开维护时建议使用分支和 PR 合并流程，`main` 只作为通过 CI 后的生产部署分支。
 
 可选浏览器 smoke 检查：
 

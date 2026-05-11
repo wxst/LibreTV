@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
@@ -208,6 +208,22 @@ test('public maintenance governance docs and CI are present', async () => {
   assert.match(featureTemplate, /维护路线图/);
   assert.match(ci, /npm test/);
   assert.match(ci, /node --check/);
+});
+
+test('maintenance automation avoids direct main pushes and public preview workflows', async () => {
+  const readme = await readProjectFile('README.md');
+  const contributing = await readProjectFile('CONTRIBUTING.md');
+  const workflowDir = path.join(rootDir, '.github/workflows');
+  const workflowFiles = await readdir(workflowDir);
+  const workflowText = (await Promise.all(
+    workflowFiles.map(fileName => readProjectFile(path.join('.github/workflows', fileName)))
+  )).join('\n');
+
+  assert.deepEqual(workflowFiles.sort(), ['ci.yml']);
+  assert.match(readme, /Preview deployments 设置为 `None`/);
+  assert.match(readme, /`main` 只作为通过 CI 后的生产部署分支/);
+  assert.match(contributing, /Do not push directly to `main`/);
+  assert.doesNotMatch(workflowText, /git push origin main|target_sync_branch:\s*main|pull_request_target/);
 });
 
 test('source health checks probe default sources and expose a UI report', async () => {

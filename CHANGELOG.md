@@ -7,6 +7,8 @@ All notable changes to this maintained LibreTV fork are documented here.
 ### Changed
 
 - Removed public site URL metadata from the current codebase and added a guard test to prevent deployment URLs from being reintroduced.
+- Documented PR-first maintenance for `main` and Cloudflare preview deployment privacy settings.
+- Removed obsolete upstream sync, auto-version, Docker publish, and unconfigured spam workflows that could interfere with protected `main` maintenance.
 
 ## 1.2.0 - 2026-05-11
 
