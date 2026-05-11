@@ -2,6 +2,17 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.8 - 2026-05-11
+
+### Changed
+
+- Source health checks now cover all built-in and custom sources instead of only the default selected sources.
+- Renamed the settings action from `检测默认源` to `检测源`.
+
+### Fixed
+
+- Loaded the shared modal stylesheet on the home page so the first-run guide opens as a centered overlay instead of appearing in page flow.
+
 ## 1.2.7 - 2026-05-11
 
 ### Added

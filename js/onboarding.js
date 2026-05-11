@@ -27,7 +27,7 @@ function showFirstRunGuide(force = false) {
                 </div>
                 <div class="first-run-step">
                     <strong>数据源</strong>
-                    <span>默认源会随健康检查调整，自定义源可通过导出配置备份。</span>
+                    <span>源健康检查会覆盖全部内置源和自定义源，自定义源可通过导出配置备份。</span>
                 </div>
                 <div class="first-run-step">
                     <strong>PWA</strong>
