@@ -193,6 +193,7 @@ test('public maintenance governance docs and CI are present', async () => {
   const bugTemplate = await readProjectFile('.github/ISSUE_TEMPLATE/bug_report.yml');
   const featureTemplate = await readProjectFile('.github/ISSUE_TEMPLATE/feature_request.yml');
   const ci = await readProjectFile('.github/workflows/ci.yml');
+  const gitignore = await readProjectFile('.gitignore');
 
   assert.match(readme, /维护续作/);
   assert.match(readme, /Cloudflare Pages/);
@@ -208,6 +209,7 @@ test('public maintenance governance docs and CI are present', async () => {
   assert.match(featureTemplate, /维护路线图/);
   assert.match(ci, /npm test/);
   assert.match(ci, /node --check/);
+  assert.match(gitignore, /^agent\.md$/m);
 });
 
 test('maintenance automation avoids direct main pushes and public preview workflows', async () => {
@@ -340,11 +342,11 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.1');
-  assert.equal(lockJson.version, '1.2.1');
-  assert.equal(lockJson.packages[''].version, '1.2.1');
-  assert.match(config, /version:\s*'1\.2\.1'/);
-  assert.match(changelog, /1\.2\.1/);
+  assert.equal(packageJson.version, '1.2.2');
+  assert.equal(lockJson.version, '1.2.2');
+  assert.equal(lockJson.packages[''].version, '1.2.2');
+  assert.match(config, /version:\s*'1\.2\.2'/);
+  assert.match(changelog, /1\.2\.2/);
   assert.match(changelog, /源健康/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);

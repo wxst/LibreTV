@@ -2,6 +2,12 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.2 - 2026-05-11
+
+### Changed
+
+- Removed local agent notes from repository tracking and ignored `agent.md` so development environment state is not published to GitHub.
+
 ## 1.2.1 - 2026-05-11
 
 ### Changed
