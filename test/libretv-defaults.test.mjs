@@ -167,6 +167,23 @@ test('PWA registration handles failures and app updates safely', async () => {
   assert.match(registration, /controllerchange/);
 });
 
+test('public deployment URLs are not exposed in current tracked files', async () => {
+  const checkedFiles = [
+    'README.md',
+    'CHANGELOG.md',
+    'ROADMAP.md',
+    'index.html',
+    'js/config.js',
+    'manifest.json',
+    'service-worker.js'
+  ];
+  const forbidden = /libretv-4vs\.pages\.dev|pages\.dev|libretv\.is-an\.org/i;
+
+  for (const filePath of checkedFiles) {
+    assert.doesNotMatch(await readProjectFile(filePath), forbidden, `${filePath} exposes a public URL`);
+  }
+});
+
 test('public maintenance governance docs and CI are present', async () => {
   const readme = await readProjectFile('README.md');
   const changelog = await readProjectFile('CHANGELOG.md');
@@ -307,11 +324,11 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.0');
-  assert.equal(lockJson.version, '1.2.0');
-  assert.equal(lockJson.packages[''].version, '1.2.0');
-  assert.match(config, /version:\s*'1\.2\.0'/);
-  assert.match(changelog, /1\.2\.0/);
+  assert.equal(packageJson.version, '1.2.1');
+  assert.equal(lockJson.version, '1.2.1');
+  assert.equal(lockJson.packages[''].version, '1.2.1');
+  assert.match(config, /version:\s*'1\.2\.1'/);
+  assert.match(changelog, /1\.2\.1/);
   assert.match(changelog, /源健康/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);

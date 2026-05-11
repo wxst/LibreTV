@@ -2,6 +2,12 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.1 - 2026-05-11
+
+### Changed
+
+- Removed public site URL metadata from the current codebase and added a guard test to prevent deployment URLs from being reintroduced.
+
 ## 1.2.0 - 2026-05-11
 
 ### Added

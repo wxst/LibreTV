@@ -14,10 +14,10 @@ const PASSWORD_CONFIG = {
 // 网站信息配置
 const SITE_CONFIG = {
     name: 'LibreTV',
-    url: 'https://libretv.is-an.org',
+    url: '',
     description: '免费在线视频搜索与观看平台',
     logo: 'image/logo.png',
-    version: '1.2.0'
+    version: '1.2.1'
 };
 
 const DEFAULT_SELECTED_APIS = ['ysgc', 'jszy', 'wujin', 'maoyan'];
