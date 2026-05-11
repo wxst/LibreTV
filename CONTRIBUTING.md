@@ -59,6 +59,8 @@ Do not post passwords, tokens, private headers, or full proxy URLs containing se
 
 ## Pull Request Guidelines
 
+- Work on a feature branch and open a pull request into `main`.
+- Do not push directly to `main` during normal maintenance because `main` is the production deployment branch.
 - Keep changes focused.
 - Add or update tests for behavior changes.
 - Update docs when deployment, configuration, versioning, or user-visible behavior changes.
