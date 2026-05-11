@@ -22,6 +22,39 @@ async function loadBrowserConfig() {
   return sandbox.window;
 }
 
+function createElementStub(tagName = 'div') {
+  return {
+    tagName,
+    children: [],
+    className: '',
+    innerHTML: '',
+    textContent: '',
+    onclick: null,
+    dataset: {},
+    style: {},
+    classList: {
+      add() {},
+      remove() {},
+      contains() {
+        return false;
+      }
+    },
+    appendChild(child) {
+      if (child?.isFragment) {
+        this.children.push(...child.children);
+      } else {
+        this.children.push(child);
+      }
+      return child;
+    },
+    insertAdjacentHTML(_position, html) {
+      this.innerHTML += html;
+    },
+    addEventListener() {},
+    remove() {}
+  };
+}
+
 test('verified customer API sources are available and invalid placeholders are removed', async () => {
   const window = await loadBrowserConfig();
 
@@ -565,6 +598,216 @@ test('yellow content filter skips adult sources and adult-looking search results
   );
 });
 
+test('search results require title relevance and ignored sources do not paginate', async () => {
+  const storage = new Map([
+    ['yellowFilterEnabled', 'false'],
+    ['selectedAPIs', JSON.stringify(['siwa'])]
+  ]);
+  const requestedUrls = [];
+  const sandbox = {
+    console,
+    URL,
+    window: {},
+    localStorage: {
+      getItem(key) {
+        return storage.get(key) || null;
+      },
+      setItem(key, value) {
+        storage.set(key, value);
+      }
+    },
+    document: {
+      addEventListener() {},
+      getElementById() {
+        return null;
+      },
+      querySelectorAll() {
+        return [];
+      }
+    },
+    fetch: async url => {
+      requestedUrls.push(decodeURIComponent(String(url)));
+      return {
+        ok: true,
+        async json() {
+          return {
+            pagecount: 50,
+            list: [
+              { vod_id: 'adult-1', vod_name: '美女主播私拍', type_name: '国产自拍' },
+              { vod_id: 'adult-2', vod_name: '热舞屁股', type_name: '美女主播' }
+            ]
+          };
+        }
+      };
+    },
+    setTimeout,
+    clearTimeout,
+    AbortController
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/config.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/customer_site.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/app.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/search.js'), sandbox);
+
+  assert.equal(typeof sandbox.window.filterResultsByQuery, 'function');
+  assert.deepEqual(
+    Array.from(sandbox.window.filterResultsByQuery([
+      { vod_name: '世界的主人', source_code: 'ysgc' },
+      { vod_name: '美女主播私拍', source_code: 'siwa' },
+      { vod_name: '别名', vod_sub: '世界的主人', source_code: 'ysgc' }
+    ], '世界的主人')).map(item => item.vod_id || item.vod_name),
+    ['世界的主人', '别名']
+  );
+
+  const results = await sandbox.searchByAPIAndKeyWord('siwa', '世界的主人');
+
+  assert.deepEqual(Array.from(results), []);
+  assert.equal(requestedUrls.filter(url => url.includes('siwazyw.tv')).length, 1);
+  assert.equal(requestedUrls.some(url => url.includes('pg=2')), false);
+});
+
+test('adult recommendation tag uses selected adult sources instead of Douban', async () => {
+  const storage = new Map([
+    ['yellowFilterEnabled', 'false'],
+    ['selectedAPIs', JSON.stringify(['ysgc', 'siwa'])],
+    ['userMovieTags', JSON.stringify(['热门', '成人视频', '动作'])]
+  ]);
+  const elements = new Map([
+    ['douban-results', createElementStub('div')],
+    ['douban-tags', createElementStub('div')]
+  ]);
+  const requestedUrls = [];
+  const sandbox = {
+    console,
+    URL,
+    window: {},
+    localStorage: {
+      getItem(key) {
+        return storage.get(key) || null;
+      },
+      setItem(key, value) {
+        storage.set(key, value);
+      }
+    },
+    document: {
+      addEventListener() {},
+      getElementById(id) {
+        return elements.get(id) || null;
+      },
+      createElement: createElementStub,
+      createDocumentFragment() {
+        return {
+          isFragment: true,
+          children: [],
+          appendChild(child) {
+            this.children.push(child);
+            return child;
+          }
+        };
+      },
+      querySelectorAll() {
+        return [];
+      }
+    },
+    fetch: async url => {
+      const decodedUrl = decodeURIComponent(String(url));
+      requestedUrls.push(decodedUrl);
+      return {
+        ok: true,
+        async json() {
+          return {
+            pagecount: 1,
+            list: [
+              { vod_id: 'adult-latest-1', vod_name: '国产自拍最新', type_name: '国产自拍' }
+            ],
+            subjects: []
+          };
+        }
+      };
+    },
+    showDetails() {},
+    setTimeout,
+    clearTimeout,
+    AbortController
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/config.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/customer_site.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/app.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/search.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/source-health.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/douban.js'), sandbox);
+
+  assert.equal(typeof sandbox.fetchLatestByAPI, 'function');
+  const latest = await sandbox.fetchLatestByAPI('siwa', 2);
+  assert.deepEqual(Array.from(latest).map(item => item.source_code), ['siwa']);
+
+  const renderPromise = sandbox.renderRecommend('成人视频', 16, 0);
+  if (renderPromise && typeof renderPromise.then === 'function') {
+    await renderPromise;
+  }
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  assert.equal(requestedUrls.some(url => url.includes('movie.douban.com')), false);
+  assert.equal(requestedUrls.some(url => url.includes('siwazyw.tv') && url.includes('ac=videolist') && url.includes('pg=')), true);
+  assert.equal(requestedUrls.some(url => url.includes('wd=')), false);
+});
+
+test('normal douban cards filter adult-looking subjects from regular tags', async () => {
+  const container = createElementStub('div');
+  const sandbox = {
+    console,
+    URL,
+    window: {},
+    localStorage: {
+      getItem() {
+        return null;
+      },
+      setItem() {}
+    },
+    document: {
+      addEventListener() {},
+      getElementById() {
+        return null;
+      },
+      createElement: createElementStub,
+      createDocumentFragment() {
+        return {
+          isFragment: true,
+          children: [],
+          appendChild(child) {
+            this.children.push(child);
+            return child;
+          }
+        };
+      },
+      querySelectorAll() {
+        return [];
+      }
+    },
+    setTimeout,
+    clearTimeout,
+    AbortController
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/config.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/customer_site.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/app.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/douban.js'), sandbox);
+
+  sandbox.renderDoubanCards({
+    subjects: [
+      { title: '美女主播私拍', rate: '7.0', cover: '', url: 'https://movie.douban.com/subject/adult' },
+      { title: '世界的主人', rate: '7.5', cover: '', url: 'https://movie.douban.com/subject/normal' }
+    ]
+  }, container);
+
+  assert.equal(container.children.length, 1);
+  assert.match(container.children[0].innerHTML, /世界的主人/);
+  assert.doesNotMatch(container.children[0].innerHTML, /美女主播/);
+});
+
 test('playback errors are classified and offer one-click source switching', async () => {
   const playerErrors = await readProjectFile('js/player-errors.js');
   const player = await readProjectFile('js/player.js');
@@ -665,12 +908,12 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.10');
-  assert.equal(lockJson.version, '1.2.10');
-  assert.equal(lockJson.packages[''].version, '1.2.10');
-  assert.match(config, /version:\s*'1\.2\.10'/);
-  assert.match(changelog, /1\.2\.10/);
-  assert.match(changelog, /检测源|Source health checks/);
+  assert.equal(packageJson.version, '1.2.11');
+  assert.equal(lockJson.version, '1.2.11');
+  assert.equal(lockJson.packages[''].version, '1.2.11');
+  assert.match(config, /version:\s*'1\.2\.11'/);
+  assert.match(changelog, /1\.2\.11/);
+  assert.match(changelog, /成人视频|adult tag/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

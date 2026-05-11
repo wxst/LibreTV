@@ -2,6 +2,14 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.11 - 2026-05-12
+
+### Fixed
+
+- Search results now require title relevance so sources that ignore keywords cannot flood unrelated adult content into normal searches.
+- The `成人视频` home tag now loads latest entries from selected adult sources instead of querying Douban as a normal tag.
+- Normal Douban home categories now filter adult-looking cards and keep adult content isolated to the dedicated adult tag.
+
 ## 1.2.10 - 2026-05-12
 
 ### Changed
