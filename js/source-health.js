@@ -3,12 +3,29 @@ const SOURCE_HEALTH_CHECKED_AT_KEY = 'sourceHealthCheckedAt';
 const SOURCE_HEALTH_TTL_MS = 24 * 60 * 60 * 1000;
 const SOURCE_HEALTH_PROBE_QUERY = '阿凡达';
 
-function getDefaultHealthSourceIds() {
-    const defaults = Array.isArray(window.DEFAULT_SELECTED_APIS) ? window.DEFAULT_SELECTED_APIS : [];
-    return defaults.filter(sourceId => window.API_SITES?.[sourceId] && !window.API_SITES[sourceId].adult);
+function getCustomHealthSourceIds() {
+    try {
+        const customSources = JSON.parse(localStorage.getItem('customAPIs') || '[]');
+        if (!Array.isArray(customSources)) return [];
+        return customSources
+            .map((source, index) => source?.url ? `custom_${index}` : '')
+            .filter(Boolean);
+    } catch (error) {
+        console.warn('读取自定义源失败:', error);
+        return [];
+    }
+}
+
+function getHealthSourceIds() {
+    const builtInSourceIds = Object.keys(window.API_SITES || {});
+    return [...builtInSourceIds, ...getCustomHealthSourceIds()];
 }
 
 function getHealthSourceName(sourceId) {
+    if (sourceId.startsWith('custom_')) {
+        const customApi = window.getCustomApiInfo?.(sourceId.replace('custom_', ''));
+        return customApi?.name || sourceId;
+    }
     return window.API_SITES?.[sourceId]?.name || sourceId;
 }
 
@@ -165,7 +182,7 @@ function summarizeSourceHealth(sources) {
     return { total, ok, degraded, failed, successRate };
 }
 
-async function runSourceHealthCheck(sourceIds = getDefaultHealthSourceIds()) {
+async function runSourceHealthCheck(sourceIds = getHealthSourceIds()) {
     const checkedAt = new Date().toISOString();
     const sources = [];
     const button = document.getElementById('sourceHealthButton');
@@ -193,7 +210,7 @@ async function runSourceHealthCheck(sourceIds = getDefaultHealthSourceIds()) {
     } finally {
         if (button) {
             button.disabled = false;
-            button.textContent = '检测默认源';
+            button.textContent = '检测源';
         }
     }
 }
@@ -254,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.SOURCE_HEALTH_STORAGE_KEY = SOURCE_HEALTH_STORAGE_KEY;
 window.loadSourceHealthReport = loadSourceHealthReport;
 window.saveSourceHealthReport = saveSourceHealthReport;
+window.getHealthSourceIds = getHealthSourceIds;
 window.probeSourceHealth = probeSourceHealth;
 window.runSourceHealthCheck = runSourceHealthCheck;
 window.renderSourceHealthSummary = renderSourceHealthSummary;

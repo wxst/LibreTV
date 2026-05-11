@@ -60,7 +60,7 @@ function getSourceDiagnostic() {
     const state = report.summary.failed > 0 ? 'warn' : 'ok';
     return {
         state,
-        detail: `${report.summary.successRate}% 成功，${report.summary.ok}/${report.summary.total} 个默认源完全可用`
+        detail: `${report.summary.successRate}% 成功，${report.summary.ok}/${report.summary.total} 个源完全可用`
     };
 }
 

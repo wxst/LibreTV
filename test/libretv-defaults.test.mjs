@@ -293,13 +293,14 @@ test('maintenance automation avoids direct main pushes and public preview workfl
   assert.doesNotMatch(workflowText, /git push origin main|target_sync_branch:\s*main|pull_request_target/);
 });
 
-test('source health checks probe default sources and expose a UI report', async () => {
+test('source health checks probe sources and expose a UI report', async () => {
   const sourceHealth = await readProjectFile('js/source-health.js');
   const index = await readProjectFile('index.html');
   const sw = await readProjectFile('service-worker.js');
 
   assert.match(sourceHealth, /SOURCE_HEALTH_STORAGE_KEY/);
   assert.match(sourceHealth, /runSourceHealthCheck/);
+  assert.match(sourceHealth, /getHealthSourceIds/);
   assert.match(sourceHealth, /probeSourceHealth/);
   assert.match(sourceHealth, /handleApiRequest/);
   assert.match(sourceHealth, /searchOk/);
@@ -312,8 +313,54 @@ test('source health checks probe default sources and expose a UI report', async 
   assert.match(index, /sourceHealthSummary/);
   assert.match(index, /sourceHealthList/);
   assert.match(index, /runSourceHealthCheck/);
+  assert.match(index, />检测源</);
+  assert.doesNotMatch(index, /检测默认源/);
   assert.match(index, /js\/source-health\.js/);
   assert.match(sw, /js\/source-health\.js/);
+});
+
+test('source health selection includes all built-in and custom sources', async () => {
+  const sandbox = {
+    console,
+    URL,
+    window: {},
+    localStorage: {
+      getItem(key) {
+        if (key === 'customAPIs') {
+          return JSON.stringify([
+            { name: '自定义一', url: 'https://custom-one.example/api.php/provide/vod' },
+            { name: '自定义二', url: 'https://custom-two.example/api.php/provide/vod' }
+          ]);
+        }
+        return null;
+      },
+      setItem() {}
+    },
+    document: {
+      addEventListener() {},
+      getElementById() {
+        return null;
+      }
+    },
+    performance: {
+      now() {
+        return 0;
+      }
+    },
+    setTimeout,
+    clearTimeout,
+    AbortController
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/config.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/customer_site.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/source-health.js'), sandbox);
+
+  const builtInSourceIds = Object.keys(sandbox.window.API_SITES);
+  const sourceIds = Array.from(sandbox.window.getHealthSourceIds());
+
+  assert.deepEqual(sourceIds, [...builtInSourceIds, 'custom_0', 'custom_1']);
+  assert.ok(sourceIds.some(sourceId => sandbox.window.API_SITES[sourceId]?.adult));
 });
 
 test('playback errors are classified and offer one-click source switching', async () => {
@@ -348,10 +395,15 @@ test('first-run guidance and diagnostics page support public self-hosting', asyn
   assert.match(onboarding, /PWA/);
   assert.match(onboarding, /导出配置/);
   assert.match(index, /js\/onboarding\.js/);
+  assert.match(index, /css\/modals\.css/);
+  assert.ok(index.indexOf('css/modals.css') < index.indexOf('css/styles.css'));
   assert.match(index, /showFirstRunGuide\(true\)/);
 
   assert.match(diagnosticsHtml, /diagnostics-root/);
   assert.match(diagnosticsHtml, /js\/diagnostics\.js/);
+  assert.match(diagnosticsHtml, /源健康/);
+  assert.match(diagnosticsHtml, />检测源</);
+  assert.doesNotMatch(diagnosticsHtml, /默认源健康|检测默认源/);
   assert.match(diagnostics, /password-status/);
   assert.match(diagnostics, /proxy-status/);
   assert.match(diagnostics, /pwa-status/);
@@ -407,12 +459,12 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.6');
-  assert.equal(lockJson.version, '1.2.6');
-  assert.equal(lockJson.packages[''].version, '1.2.6');
-  assert.match(config, /version:\s*'1\.2\.6'/);
-  assert.match(changelog, /1\.2\.6/);
-  assert.match(changelog, /read-only/);
+  assert.equal(packageJson.version, '1.2.7');
+  assert.equal(lockJson.version, '1.2.7');
+  assert.equal(lockJson.packages[''].version, '1.2.7');
+  assert.match(config, /version:\s*'1\.2\.7'/);
+  assert.match(changelog, /1\.2\.7/);
+  assert.match(changelog, /检测源|Source health checks/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

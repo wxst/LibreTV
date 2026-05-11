@@ -18,6 +18,7 @@
     <link rel="manifest" href="manifest.json">
     
     <script src="libs/tailwindcss.min.js"></script>
+    <link rel="stylesheet" href="css/modals.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/index.css">
 </head>
@@ -100,7 +101,7 @@
                 <div class="source-health-panel mt-3">
                     <div class="flex justify-between items-center gap-2">
                         <span id="sourceHealthSummary" class="text-xs text-gray-400">源健康：尚未检测</span>
-                        <button id="sourceHealthButton" onclick="runSourceHealthCheck()" class="px-2 py-1 bg-[#333] hover:bg-[#444] text-white text-xs rounded">检测默认源</button>
+                        <button id="sourceHealthButton" onclick="runSourceHealthCheck()" class="px-2 py-1 bg-[#333] hover:bg-[#444] text-white text-xs rounded">检测源</button>
                     </div>
                     <div id="sourceHealthLastChecked" class="text-xs text-gray-500 mt-1">最近检测：尚未检测</div>
                     <div id="sourceHealthList" class="source-health-list mt-2"></div>
