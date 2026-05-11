@@ -316,6 +316,7 @@ test('maintenance automation avoids direct main pushes and public preview workfl
 test('source health checks probe sources and expose a UI report', async () => {
   const sourceHealth = await readProjectFile('js/source-health.js');
   const index = await readProjectFile('index.html');
+  const diagnosticsHtml = await readProjectFile('diagnostics.html');
   const sw = await readProjectFile('service-worker.js');
 
   assert.match(sourceHealth, /SOURCE_HEALTH_STORAGE_KEY/);
@@ -330,10 +331,11 @@ test('source health checks probe sources and expose a UI report', async () => {
   assert.match(sourceHealth, /successRate/);
   assert.match(sourceHealth, /checkedAt/);
   assert.match(sourceHealth, /sourceHealthReport/);
-  assert.match(index, /sourceHealthSummary/);
-  assert.match(index, /sourceHealthList/);
-  assert.match(index, /runSourceHealthCheck/);
-  assert.match(index, />检测源</);
+  assert.match(diagnosticsHtml, /sourceHealthSummary/);
+  assert.match(diagnosticsHtml, /sourceHealthList/);
+  assert.match(diagnosticsHtml, /runDiagnosticsSourceHealth/);
+  assert.match(diagnosticsHtml, />检测源</);
+  assert.doesNotMatch(index, /source-health-panel|sourceHealthSummary|sourceHealthList|runSourceHealthCheck/);
   assert.doesNotMatch(index, /检测默认源/);
   assert.match(index, /js\/source-health\.js/);
   assert.match(sw, /js\/source-health\.js/);
@@ -500,6 +502,69 @@ test('source health checks unselect failed sources for the current user', async 
   assert.equal(report.disabledSourceIds.includes('failed_source'), true);
 });
 
+test('yellow content filter skips adult sources and adult-looking search results', async () => {
+  const storage = new Map([
+    ['yellowFilterEnabled', 'true'],
+    ['selectedAPIs', JSON.stringify(['ysgc', 'siwa', 'custom_0', 'custom_1'])],
+    ['customAPIs', JSON.stringify([
+      { name: '自定义黄色源', url: 'https://adult.example/api.php/provide/vod', isAdult: true },
+      { name: '自定义普通源', url: 'https://safe.example/api.php/provide/vod' }
+    ])]
+  ]);
+  const sandbox = {
+    console,
+    URL,
+    window: {},
+    localStorage: {
+      getItem(key) {
+        return storage.get(key) || null;
+      },
+      setItem(key, value) {
+        storage.set(key, value);
+      }
+    },
+    document: {
+      addEventListener() {},
+      getElementById() {
+        return null;
+      },
+      querySelectorAll() {
+        return [];
+      }
+    },
+    setTimeout,
+    clearTimeout
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/config.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/customer_site.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/app.js'), sandbox);
+
+  assert.deepEqual(
+    Array.from(sandbox.window.getSearchableApiIds(['ysgc', 'siwa', 'custom_0', 'custom_1'])),
+    ['ysgc', 'custom_1']
+  );
+
+  const filtered = sandbox.window.filterYellowContentResults([
+    { vod_name: '世界的主人', type_name: '剧情', source_code: 'ysgc' },
+    { vod_name: '普通标题', type_name: '剧情', source_code: 'siwa', source_name: '丝袜资源' },
+    { vod_name: '美女主播私拍', type_name: '国产自拍', source_code: 'ysgc' },
+    { vod_name: '普通标题', type_name: '剧情', source_code: 'custom_0' }
+  ]);
+
+  assert.deepEqual(Array.from(filtered).map(item => item.vod_name), ['世界的主人']);
+
+  storage.set('yellowFilterEnabled', 'false');
+  assert.equal(
+    sandbox.window.getResultTypeLabel({ vod_name: '美女主播私拍', type_name: '国产自拍', source_code: 'ysgc' }),
+    '成人视频'
+  );
+  assert.equal(
+    sandbox.window.getResultTypeLabel({ vod_name: '普通电影', type_name: '剧情', source_code: 'ysgc' }),
+    '剧情'
+  );
+});
+
 test('playback errors are classified and offer one-click source switching', async () => {
   const playerErrors = await readProjectFile('js/player-errors.js');
   const player = await readProjectFile('js/player.js');
@@ -537,10 +602,14 @@ test('first-run guidance and diagnostics page support public self-hosting', asyn
   assert.match(index, /showFirstRunGuide\(true\)/);
 
   assert.match(diagnosticsHtml, /diagnostics-root/);
+  assert.match(diagnosticsHtml, /<title>LibreTV 检测源<\/title>/);
+  assert.match(diagnosticsHtml, /<h1>LibreTV 检测源<\/h1>/);
   assert.match(diagnosticsHtml, /js\/diagnostics\.js/);
   assert.match(diagnosticsHtml, /源健康/);
   assert.match(diagnosticsHtml, />检测源</);
   assert.doesNotMatch(diagnosticsHtml, /默认源健康|检测默认源/);
+  assert.match(index, /window\.location\.href='diagnostics\.html'[\s\S]*>检测源<\/button>/);
+  assert.doesNotMatch(index, />诊断页<\/button>/);
   assert.match(diagnostics, /password-status/);
   assert.match(diagnostics, /proxy-status/);
   assert.match(diagnostics, /pwa-status/);
@@ -596,11 +665,11 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.9');
-  assert.equal(lockJson.version, '1.2.9');
-  assert.equal(lockJson.packages[''].version, '1.2.9');
-  assert.match(config, /version:\s*'1\.2\.9'/);
-  assert.match(changelog, /1\.2\.9/);
+  assert.equal(packageJson.version, '1.2.10');
+  assert.equal(lockJson.version, '1.2.10');
+  assert.equal(lockJson.packages[''].version, '1.2.10');
+  assert.match(config, /version:\s*'1\.2\.10'/);
+  assert.match(changelog, /1\.2\.10/);
   assert.match(changelog, /检测源|Source health checks/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);

@@ -11,6 +11,69 @@ let currentVideoTitle = '';
 // 全局变量用于倒序状态
 let episodesReversed = false;
 
+const YELLOW_CONTENT_KEYWORDS = [
+    '伦理片', '福利', '里番动漫', '门事件', '萝莉少女', '制服诱惑', '国产传媒',
+    'cosplay', '黑丝诱惑', '无码', '日本无码', '有码', '日本有码', 'swag',
+    '网红主播', '美女主播', '国产自拍', '色情片', '同性片', '福利视频', '福利片',
+    '成人', '情色', '女优', '人妻', '巨乳', '私拍', '大尺度', '麻豆', '抖阴'
+];
+
+function isYellowContentFilterEnabled() {
+    return localStorage.getItem('yellowFilterEnabled') === 'true';
+}
+
+function isAdultSourceId(apiId) {
+    if (!apiId) return false;
+    if (apiId.startsWith('custom_')) {
+        const customApi = getCustomApiInfo(apiId.replace('custom_', ''));
+        return Boolean(customApi?.isAdult);
+    }
+    return Boolean(API_SITES[apiId]?.adult);
+}
+
+function getSearchableApiIds(apiIds = selectedAPIs) {
+    const ids = Array.from(apiIds || []);
+    if (!isYellowContentFilterEnabled()) return ids;
+    return ids.filter(apiId => !isAdultSourceId(apiId));
+}
+
+function normalizeFilterText(value) {
+    return String(value || '').toLowerCase();
+}
+
+function matchesYellowContent(item) {
+    if (isAdultSourceId(item?.source_code)) return true;
+
+    const haystack = [
+        item?.vod_name,
+        item?.type_name,
+        item?.vod_class,
+        item?.vod_remarks,
+        item?.vod_content,
+        item?.source_name
+    ].map(normalizeFilterText).join(' ');
+
+    return YELLOW_CONTENT_KEYWORDS.some(keyword => haystack.includes(keyword.toLowerCase()));
+}
+
+function filterYellowContentResults(results) {
+    const list = Array.isArray(results) ? results : [];
+    if (!isYellowContentFilterEnabled()) return list;
+    return list.filter(item => !matchesYellowContent(item));
+}
+
+function getResultTypeLabel(item) {
+    if (matchesYellowContent(item)) return '成人视频';
+    return String(item?.type_name || '').trim();
+}
+
+function getResultTypeLabelClass(item) {
+    if (matchesYellowContent(item)) {
+        return 'bg-opacity-20 bg-pink-500 text-pink-300';
+    }
+    return 'bg-opacity-20 bg-blue-500 text-blue-300';
+}
+
 function getAvailableDefaultApiIds() {
     return DEFAULT_SELECTED_APIS.filter(apiId => API_SITES[apiId]);
 }
@@ -188,42 +251,28 @@ function checkAdultAPIsSelected() {
     const hasAdultSelected = adultBuiltinCheckboxes.length > 0 || customApiCheckboxes.length > 0;
 
     const yellowFilterToggle = document.getElementById('yellowFilterToggle');
+    if (!yellowFilterToggle) return;
     const yellowFilterContainer = yellowFilterToggle.closest('div').parentNode;
     const filterDescription = yellowFilterContainer.querySelector('p.filter-description');
+    const existingTooltip = yellowFilterContainer.querySelector('.filter-tooltip');
+    if (existingTooltip) {
+        existingTooltip.remove();
+    }
 
-    // 如果选择了成人API，禁用黄色内容过滤器
-    if (hasAdultSelected) {
-        yellowFilterToggle.checked = false;
-        yellowFilterToggle.disabled = true;
-        localStorage.setItem('yellowFilterEnabled', 'false');
+    yellowFilterToggle.disabled = false;
+    yellowFilterContainer.classList.remove('filter-disabled');
 
-        // 添加禁用样式
-        yellowFilterContainer.classList.add('filter-disabled');
-
-        // 修改描述文字
+    if (hasAdultSelected && yellowFilterToggle.checked) {
         if (filterDescription) {
-            filterDescription.innerHTML = '<strong class="text-pink-300">选中黄色资源站时无法启用此过滤</strong>';
+            filterDescription.innerHTML = '<strong class="text-pink-300">已启用过滤，搜索时会跳过黄色资源站</strong>';
         }
-
-        // 移除提示信息（如果存在）
-        const existingTooltip = yellowFilterContainer.querySelector('.filter-tooltip');
-        if (existingTooltip) {
-            existingTooltip.remove();
+    } else if (hasAdultSelected) {
+        if (filterDescription) {
+            filterDescription.innerHTML = '<strong class="text-pink-300">关闭过滤后会搜索已选黄色资源站</strong>';
         }
     } else {
-        // 启用黄色内容过滤器
-        yellowFilterToggle.disabled = false;
-        yellowFilterContainer.classList.remove('filter-disabled');
-
-        // 恢复原来的描述文字
         if (filterDescription) {
             filterDescription.innerHTML = '过滤"伦理片"等黄色内容';
-        }
-
-        // 移除提示信息
-        const existingTooltip = yellowFilterContainer.querySelector('.filter-tooltip');
-        if (existingTooltip) {
-            existingTooltip.remove();
         }
     }
 }
@@ -656,6 +705,12 @@ async function search() {
         return;
     }
 
+    const searchableApiIds = getSearchableApiIds(selectedAPIs);
+    if (searchableApiIds.length === 0) {
+        showToast('黄色内容过滤已开启，当前选中的黄色资源站已被跳过', 'warning');
+        return;
+    }
+
     showLoading();
 
     try {
@@ -664,7 +719,7 @@ async function search() {
 
         // 从所有选中的API源搜索
         let allResults = [];
-        const searchPromises = selectedAPIs.map(apiId => 
+        const searchPromises = searchableApiIds.map(apiId =>
             searchByAPIAndKeyWord(apiId, query)
         );
 
@@ -677,6 +732,8 @@ async function search() {
                 allResults = allResults.concat(results);
             }
         });
+
+        allResults = filterYellowContentResults(allResults);
 
         // 对搜索结果进行排序：按名称优先，名称相同时按接口源排序
         allResults.sort((a, b) => {
@@ -740,16 +797,6 @@ async function search() {
             // 如果更新URL失败，继续执行搜索
         }
 
-        // 处理搜索结果过滤：如果启用了黄色内容过滤，则过滤掉分类含有敏感内容的项目
-        const yellowFilterEnabled = localStorage.getItem('yellowFilterEnabled') === 'true';
-        if (yellowFilterEnabled) {
-            const banned = ['伦理片', '福利', '里番动漫', '门事件', '萝莉少女', '制服诱惑', '国产传媒', 'cosplay', '黑丝诱惑', '无码', '日本无码', '有码', '日本有码', 'SWAG', '网红主播', '色情片', '同性片', '福利视频', '福利片'];
-            allResults = allResults.filter(item => {
-                const typeName = item.type_name || '';
-                return !banned.some(keyword => typeName.includes(keyword));
-            });
-        }
-
         // 添加XSS保护，使用textContent和属性转义
         const safeResults = allResults.map(item => {
             const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
@@ -757,8 +804,11 @@ async function search() {
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
+            const resultTypeLabel = getResultTypeLabel(item);
+            const safeTypeLabel = escapeHtmlAttr(resultTypeLabel);
+            const resultTypeClass = getResultTypeLabelClass(item);
             const sourceInfo = item.source_name ?
-                `<span class="bg-[#222] text-xs px-1.5 py-0.5 rounded-full">${item.source_name}</span>` : '';
+                `<span class="bg-[#222] text-xs px-1.5 py-0.5 rounded-full">${escapeHtmlAttr(item.source_name)}</span>` : '';
             const sourceCode = item.source_code || '';
             const apiBaseUrl = item.api_url || (sourceCode && API_SITES[sourceCode]?.api) || '';
             const coverUrl = normalizeImageUrl(item.vod_pic, apiBaseUrl);
@@ -789,9 +839,9 @@ async function search() {
                                 <h3 class="font-semibold mb-2 break-words line-clamp-2 ${hasCover ? '' : 'text-center'}" title="${safeName}">${safeName}</h3>
                                 
                                 <div class="flex flex-wrap ${hasCover ? '' : 'justify-center'} gap-1 mb-2">
-                                    ${(item.type_name || '').toString().replace(/</g, '&lt;') ?
-                    `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-blue-500 text-blue-300">
-                                          ${(item.type_name || '').toString().replace(/</g, '&lt;')}
+                                    ${safeTypeLabel ?
+                    `<span class="text-xs py-0.5 px-1.5 rounded ${resultTypeClass}">
+                                          ${safeTypeLabel}
                                       </span>` : ''}
                                     ${(item.vod_year || '') ?
                     `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-purple-500 text-purple-300">
@@ -1321,5 +1371,10 @@ function saveStringAsFile(content, fileName) {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
 }
+
+window.getSearchableApiIds = getSearchableApiIds;
+window.filterYellowContentResults = filterYellowContentResults;
+window.matchesYellowContent = matchesYellowContent;
+window.getResultTypeLabel = getResultTypeLabel;
 
 // 移除Node.js的require语句，因为这是在浏览器环境中运行的

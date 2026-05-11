@@ -2,6 +2,14 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.10 - 2026-05-12
+
+### Changed
+
+- Yellow content filtering now skips adult sources before searching and filters adult-looking results by title, type, remarks, content, and source.
+- When yellow content filtering is disabled, adult results use a dedicated `成人视频` badge instead of mixing adult categories into normal result labels.
+- The settings panel no longer embeds the source health report; its diagnostics entry is now labeled `检测源`.
+
 ## 1.2.9 - 2026-05-12
 
 ### Changed
