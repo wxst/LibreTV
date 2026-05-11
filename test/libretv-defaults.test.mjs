@@ -113,16 +113,70 @@ test('Cloudflare Pages proxy preserves binary image/media responses', async () =
   assert.match(middleware, /PASSWORD_HASH/);
 });
 
+test('manifest exposes installable PWA metadata', async () => {
+  const manifest = JSON.parse(await readProjectFile('manifest.json'));
+
+  assert.equal(manifest.id, '/');
+  assert.equal(manifest.start_url, '/');
+  assert.equal(manifest.scope, '/');
+  assert.equal(manifest.display, 'standalone');
+  assert.equal(manifest.orientation, 'any');
+  assert.equal(manifest.lang, 'zh-CN');
+  assert.ok(manifest.categories.includes('entertainment'));
+
+  const icon192 = manifest.icons.find(icon => icon.sizes === '192x192');
+  const icon512 = manifest.icons.find(icon => icon.sizes === '512x512');
+  assert.equal(icon192.src, 'image/icon-192.png');
+  assert.match(icon192.purpose, /maskable/);
+  assert.equal(icon512.src, 'image/icon-512-maskable.png');
+  assert.match(icon512.purpose, /maskable/);
+});
+
+test('service worker provides an offline app shell without caching APIs or media', async () => {
+  const sw = await readProjectFile('service-worker.js');
+
+  assert.match(sw, /APP_SHELL_CACHE/);
+  assert.match(sw, /OFFLINE_URL\s*=\s*'\/offline\.html'/);
+  assert.match(sw, /isNetworkOnlyRequest/);
+  assert.match(sw, /\/api\//);
+  assert.match(sw, /\/proxy\//);
+  assert.match(sw, /\.m3u8/);
+  assert.match(sw, /event\.request\.mode === 'navigate'/);
+  assert.match(sw, /caches\.open\(APP_SHELL_CACHE\)/);
+});
+
+test('pages expose PWA metadata and register the service worker', async () => {
+  const pages = ['index.html', 'player.html', 'watch.html', 'about.html', 'offline.html'];
+
+  for (const pagePath of pages) {
+    const html = await readProjectFile(pagePath);
+    assert.match(html, /<link rel="manifest" href="manifest\.json">/);
+    assert.match(html, /<meta name="theme-color" content="#0f1622">/);
+    assert.match(html, /<meta name="mobile-web-app-capable" content="yes">/);
+    assert.match(html, /<meta name="apple-mobile-web-app-capable" content="yes">/);
+    assert.match(html, /<script src="js\/pwa-register\.js"><\/script>/);
+  }
+});
+
+test('PWA registration handles failures and app updates safely', async () => {
+  const registration = await readProjectFile('js/pwa-register.js');
+
+  assert.match(registration, /navigator\.serviceWorker\.register\('\/service-worker\.js'\)/);
+  assert.match(registration, /catch/);
+  assert.match(registration, /console\.warn/);
+  assert.match(registration, /controllerchange/);
+});
+
 test('release metadata is bumped for this update', async () => {
   const packageJson = JSON.parse(await readProjectFile('package.json'));
   const lockJson = JSON.parse(await readProjectFile('package-lock.json'));
   const config = await readProjectFile('js/config.js');
   const versionTxt = (await readProjectFile('VERSION.txt')).trim();
 
-  assert.equal(packageJson.version, '1.1.3');
-  assert.equal(lockJson.version, '1.1.3');
-  assert.equal(lockJson.packages[''].version, '1.1.3');
-  assert.match(config, /version:\s*'1\.1\.3'/);
+  assert.equal(packageJson.version, '1.1.4');
+  assert.equal(lockJson.version, '1.1.4');
+  assert.equal(lockJson.packages[''].version, '1.1.4');
+  assert.match(config, /version:\s*'1\.1\.4'/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });

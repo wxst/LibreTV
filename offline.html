@@ -3,31 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="3; url=player.html">
     <meta name="theme-color" content="#0f1622">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <title>正在跳转到播放器...</title>
+    <title>LibreTV 离线</title>
     <link rel="icon" href="image/logo.png">
     <link rel="apple-touch-icon" href="image/icon-192.png">
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/watch.css">
-    <script src="js/watch.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
-    <div class="redirect-container">
-        <div class="logo-container">
-            <svg class="logo-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<body class="page-bg text-white min-h-screen flex items-center justify-center px-6">
+    <main class="max-w-md text-center">
+        <div class="flex items-center justify-center mb-6">
+            <svg class="w-10 h-10 mr-2 text-[#00ccff]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
             </svg>
-            <h1 class="logo-text">LibreTV</h1>
+            <h1 class="text-4xl font-bold gradient-text">LibreTV</h1>
         </div>
-        <div class="loading-animation"></div>
-        <div class="redirect-message">正在加载播放器...</div>
-        <div id="redirect-status">准备视频数据中，请稍候...</div>
-        <p class="redirect-hint">如果页面没有自动跳转，请<a href="player.html" id="manual-redirect">点击这里</a></p>
-    </div>
+        <h2 class="text-xl font-semibold mb-3">当前网络不可用</h2>
+        <p class="text-gray-400 mb-6">已安装的应用壳仍可打开，但搜索、详情和播放需要联网后继续使用。</p>
+        <a href="/" class="inline-block px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">返回首页</a>
+    </main>
     <script src="js/pwa-register.js"></script>
 </body>
 </html>
