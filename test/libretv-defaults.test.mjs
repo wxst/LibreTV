@@ -930,6 +930,43 @@ test('player autoplay fallback retries muted playback and source switching resum
   assert.match(player, /position=\$\{encodeURIComponent\(String\(Math\.floor\(resumePosition\)\)\)\}/);
 });
 
+test('player surface click, cast, fullscreen, and quality controls are wired', async () => {
+  const player = await readProjectFile('js/player.js');
+  const playerStyles = await readProjectFile('css/player.css');
+
+  assert.match(player, /function setupPlayerSurfaceToggle/);
+  assert.match(player, /function shouldIgnorePlayerSurfaceToggle/);
+  assert.match(player, /PLAYER_SURFACE_INTERACTIVE_SELECTOR/);
+  assert.match(player, /clickTimer/);
+  assert.match(player, /togglePlaybackFromSurface/);
+  assert.doesNotMatch(player, /art\.video\.addEventListener\('dblclick'/);
+
+  assert.match(player, /function toggleFullscreenMode/);
+  assert.match(player, /e\.altKey && e\.key === 'Enter'/);
+  assert.match(player, /function maybeLockLandscapeOrientation/);
+  assert.match(player, /function unlockLandscapeOrientation/);
+  assert.match(player, /screen\.orientation\.lock\('landscape'\)/);
+  assert.match(player, /screen\.orientation\.unlock\(\)/);
+
+  assert.match(player, /function requestNativeCast/);
+  assert.match(player, /video\.remote\.prompt\(\)/);
+  assert.match(player, /webkitShowPlaybackTargetPicker/);
+  assert.match(player, /当前浏览器不支持投屏/);
+  assert.match(player, /function setupPlayerTopActions/);
+  assert.match(player, /player-top-actions/);
+  assert.match(playerStyles, /\.player-top-actions/);
+
+  assert.match(player, /function buildHlsQualityOptions/);
+  assert.match(player, /function applyHlsQuality/);
+  assert.match(player, /function updateHlsQualityControl/);
+  assert.match(player, /currentHls\.levels/);
+  assert.match(player, /currentHls\.currentLevel/);
+  assert.match(player, /name:\s*'quality'/);
+  assert.match(player, /name:\s*'switch-resource'/);
+  assert.match(player, /name:\s*'prev-episode'/);
+  assert.match(player, /name:\s*'next-episode'/);
+});
+
 test('first-run guidance and diagnostics page support public self-hosting', async () => {
   const onboarding = await readProjectFile('js/onboarding.js');
   const password = await readProjectFile('js/password.js');
@@ -1016,12 +1053,12 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.13');
-  assert.equal(lockJson.version, '1.2.13');
-  assert.equal(lockJson.packages[''].version, '1.2.13');
-  assert.match(config, /version:\s*'1\.2\.13'/);
-  assert.match(changelog, /1\.2\.13/);
-  assert.match(changelog, /resource switching|资源切换|switchable resources/);
+  assert.equal(packageJson.version, '1.2.14');
+  assert.equal(lockJson.version, '1.2.14');
+  assert.equal(lockJson.packages[''].version, '1.2.14');
+  assert.match(config, /version:\s*'1\.2\.14'/);
+  assert.match(changelog, /1\.2\.14/);
+  assert.match(changelog, /投屏|Alt\+Enter|清晰度|hotzone|播放\/暂停/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });
