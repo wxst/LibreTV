@@ -102,6 +102,7 @@ let progressPreviewDestroyTimer = null; // 延迟销毁预览资源
 let playerSurfaceCleanup = null; // 播放器画面点击事件清理器
 let playerTopActionsEl = null; // 播放器顶部浮动按钮容器
 let playerControlDensityCleanup = null; // 播放器控制栏密度事件清理器
+let castAvailabilityCleanup = null; // 投屏可用性监听清理器
 const modalHome = { parent: null, nextSibling: null };
 const isWebkit = (typeof window.webkitConvertPointFromNodeToPage === 'function')
 const PLAYER_SURFACE_INTERACTIVE_SELECTOR = [
@@ -562,6 +563,134 @@ async function startPresentationCast(video = art?.video) {
     return true;
 }
 
+function normalizeCastAvailability(availability) {
+    if (availability && typeof availability === 'object' && 'value' in availability) {
+        return Boolean(availability.value);
+    }
+
+    return Boolean(availability);
+}
+
+async function detectPresentationCastAvailability(video = art?.video) {
+    const castUrl = buildPresentationCastUrl(video);
+    if (!castUrl || typeof PresentationRequest !== 'function') return false;
+
+    try {
+        if (typeof PresentationRequest.getAvailability === 'function') {
+            const availability = await PresentationRequest.getAvailability([castUrl]);
+            if (normalizeCastAvailability(availability)) return true;
+        }
+    } catch (e) {
+    }
+
+    try {
+        const request = new PresentationRequest([castUrl]);
+        if (typeof request.getAvailability !== 'function') return false;
+
+        const availability = await request.getAvailability();
+        return normalizeCastAvailability(availability);
+    } catch (e) {
+        return false;
+    }
+}
+
+function detectRemotePlaybackAvailability(video = art?.video, callbacks = {}) {
+    if (!video?.remote || typeof video.remote.watchAvailability !== 'function') {
+        return Promise.resolve(false);
+    }
+
+    return new Promise((resolve) => {
+        let settled = false;
+        const settle = (available) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeout);
+            resolve(Boolean(available));
+        };
+        const timeout = setTimeout(() => settle(false), 1200);
+
+        try {
+            const watchPromise = video.remote.watchAvailability((available) => {
+                const normalized = Boolean(available);
+                if (typeof callbacks.onAvailabilityChange === 'function') {
+                    callbacks.onAvailabilityChange(normalized);
+                }
+                settle(normalized);
+            });
+
+            if (watchPromise && typeof watchPromise.then === 'function') {
+                watchPromise
+                    .then((watchId) => {
+                        if (typeof callbacks.onRemoteWatchId === 'function') {
+                            callbacks.onRemoteWatchId(watchId);
+                        }
+                    })
+                    .catch(() => settle(false));
+            }
+        } catch (e) {
+            settle(false);
+        }
+    });
+}
+
+async function detectCastAvailability(video = art?.video, callbacks = {}) {
+    if (!video) return false;
+    if (typeof video.webkitShowPlaybackTargetPicker === 'function') return true;
+    if (await detectPresentationCastAvailability(video)) return true;
+
+    return detectRemotePlaybackAvailability(video, callbacks);
+}
+
+function cleanupCastAvailability() {
+    if (castAvailabilityCleanup) {
+        castAvailabilityCleanup();
+        castAvailabilityCleanup = null;
+    }
+}
+
+function setCastButtonAvailable(available) {
+    if (playerTopActionsEl) {
+        playerTopActionsEl.hidden = !available;
+    }
+}
+
+function setupCastAvailability() {
+    cleanupCastAvailability();
+    setCastButtonAvailable(false);
+
+    const video = art?.video;
+    if (!video || !playerTopActionsEl) return;
+
+    let disposed = false;
+    let remoteWatchId = null;
+    const applyAvailability = (available) => {
+        if (disposed) return;
+        setCastButtonAvailable(available);
+    };
+
+    castAvailabilityCleanup = () => {
+        disposed = true;
+        if (remoteWatchId && typeof video.remote?.cancelWatchAvailability === 'function') {
+            try {
+                const cancelResult = video.remote.cancelWatchAvailability(remoteWatchId);
+                if (cancelResult && typeof cancelResult.catch === 'function') {
+                    cancelResult.catch(() => {});
+                }
+            } catch (e) {
+            }
+        }
+    };
+
+    detectCastAvailability(video, {
+        onAvailabilityChange: applyAvailability,
+        onRemoteWatchId(watchId) {
+            remoteWatchId = watchId;
+        }
+    })
+        .then(applyAvailability)
+        .catch(() => applyAvailability(false));
+}
+
 function isCastCancelError(error) {
     return ['AbortError', 'NotFoundError', 'NotAllowedError'].includes(error?.name);
 }
@@ -652,6 +781,7 @@ function setupPlayerTopActions() {
 
     const castButton = playerTopActionsEl.querySelector('button');
     castButton?.addEventListener('click', requestNativeCast);
+    setupCastAvailability();
 }
 
 function playerControlIcon(name) {
@@ -660,7 +790,6 @@ function playerControlIcon(name) {
         next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 6a1 1 0 1 0-2 0v4.1L7.6 5.3A1 1 0 0 0 6 6.1v11.8a1 1 0 0 0 1.6.8l7.4-4.8V18a1 1 0 1 0 2 0V6Z" fill="currentColor"/></svg>',
         resource: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10l-2.2-2.2a1 1 0 1 1 1.4-1.4l4 4a1 1 0 0 1 0 1.4l-4 4a1 1 0 1 1-1.4-1.4L17 9H7a1 1 0 0 1 0-2Zm10 10H7l2.2 2.2a1 1 0 0 1-1.4 1.4l-4-4a1 1 0 0 1 0-1.4l4-4a1 1 0 1 1 1.4 1.4L7 15h10a1 1 0 1 1 0 2Z" fill="currentColor"/></svg>',
         quality: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 2v10h14V7H5Zm2 3h2v4H7v-4Zm4-1h2v5h-2V9Zm4-1h2v6h-2V8Z" fill="currentColor"/></svg>',
-        ratio: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7Zm3-1a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H7Zm1.5 4.5h7v3h-7v-3Z" fill="currentColor"/></svg>',
         fullscreen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9V5h4a1 1 0 0 0 0-2H4a1 1 0 0 0-1 1v5a1 1 0 0 0 2 0Zm10-6a1 1 0 1 0 0 2h4v4a1 1 0 1 0 2 0V4a1 1 0 0 0-1-1h-5ZM5 15a1 1 0 1 0-2 0v5a1 1 0 0 0 1 1h5a1 1 0 1 0 0-2H5v-4Zm16 0a1 1 0 1 0-2 0v4h-4a1 1 0 1 0 0 2h5a1 1 0 0 0 1-1v-5Z" fill="currentColor"/></svg>'
     };
     return icons[name] || '';
@@ -738,13 +867,6 @@ function updateHlsQualityControl() {
     });
 }
 
-function applyVideoFitMode(item) {
-    if (!art?.video) return item?.html || '默认';
-    art.video.style.objectFit = item.fit || 'contain';
-    showShortcutHint(`画面 ${item.html}`, 'fullscreen');
-    return item.html;
-}
-
 function buildVideoControls() {
     return [
         {
@@ -782,21 +904,6 @@ function buildVideoControls() {
                 return applyHlsQuality(item);
             }
         },
-        {
-            name: 'aspect-ratio',
-            index: 13,
-            position: 'right',
-            html: playerControlIcon('ratio'),
-            tooltip: '画面比例',
-            selector: [
-                { html: '默认', fit: 'contain', default: true },
-                { html: '填充', fit: 'fill' },
-                { html: '裁切', fit: 'cover' }
-            ],
-            onSelect(item) {
-                return applyVideoFitMode(item);
-            }
-        }
     ];
 }
 
@@ -1322,6 +1429,7 @@ function initPlayer(videoUrl) {
             playerControlDensityCleanup();
             playerControlDensityCleanup = null;
         }
+        cleanupCastAvailability();
         restoreModalHome();
         art.destroy();
         art = null;
@@ -1345,9 +1453,9 @@ function initPlayer(videoUrl) {
         screenshot: true,
         setting: true,
         loop: false,
-        flip: true,
+        flip: false,
         playbackRate: true,
-        aspectRatio: true,
+        aspectRatio: false,
         fullscreen: true,
         fullscreenWeb: false,
         subtitleOffset: false,

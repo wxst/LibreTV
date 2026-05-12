@@ -2,6 +2,13 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.17 - 2026-05-12
+
+### Fixed
+
+- The player cast button now hides when the current browser or device reports no available native cast target.
+- Removed inactive aspect ratio and flip player controls that did not affect playback reliably.
+
 ## 1.2.16 - 2026-05-12
 
 ### Fixed
