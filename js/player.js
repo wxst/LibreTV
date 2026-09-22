@@ -1468,6 +1468,9 @@ function initPlayer(videoUrl) {
         hotkey: false,
         theme: '#23ade5',
         lang: navigator.language.toLowerCase(),
+        icons: {
+            state: '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="32" fill="#fff" fill-opacity="0.9"/><path d="M36 28.5 54 40 36 51.5z" fill="#0f1622"/></svg>'
+        },
         controls: buildVideoControls(),
         moreVideoAttr: {
             crossOrigin: 'anonymous',

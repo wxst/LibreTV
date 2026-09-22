@@ -2,6 +2,12 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.18 - 2026-09-23
+
+### Fixed
+
+- Restored the centered paused-play icon and ArtPlayer's loading-state visibility by removing conflicting mask overrides.
+
 ## 1.2.17 - 2026-05-12
 
 ### Fixed

@@ -152,33 +152,6 @@ div.player-loading-text {
     box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
 }
 
-#player .art-mask {
-    inset: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-#player .art-state {
-    position: relative !important;
-    margin: 0 !important;
-    transform: none !important;
-    pointer-events: none !important;
-}
-
-#player .art-state svg,
-#player .art-state .art-icon {
-    margin: 0 !important;
-    display: block !important;
-}
-
-#player .art-state .art-icon-state {
-    position: absolute !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-}
-
 .player-top-actions {
     position: absolute;
     top: 14px;
