@@ -17,13 +17,61 @@
     document.head.appendChild(style);
 })();
 
+const VERSION_FETCH_TIMEOUT_MS = 7000;
+const VERSION_URL = {
+    API: 'https://api.github.com/repos/wxst/LibreTV/contents/VERSION.txt?ref=main',
+    RAW: 'https://raw.githubusercontent.com/wxst/LibreTV/main/VERSION.txt'
+};
+
 // 获取版本信息
 async function fetchVersion(url, errorMessage, options = {}) {
-    const response = await fetch(url, options);
-    if (!response.ok) {
-        throw new Error(errorMessage);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), VERSION_FETCH_TIMEOUT_MS);
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        if (!response.ok) {
+            throw new Error(errorMessage);
+        }
+        return await response.text();
+    } catch (error) {
+        if (controller.signal.aborted) {
+            throw new Error(`${errorMessage}（请求超时）`);
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
     }
-    return await response.text();
+}
+
+function normalizeVersion(version) {
+    const normalizedVersion = version.trim();
+    if (!/^\d{12}$/.test(normalizedVersion)) {
+        throw new Error('版本号格式无效');
+    }
+    return normalizedVersion;
+}
+
+async function fetchLatestVersion() {
+    try {
+        const version = await fetchVersion(VERSION_URL.API, 'GitHub API 请求失败', {
+            cache: 'no-store',
+            headers: { Accept: 'application/vnd.github.raw+json' }
+        });
+        return normalizeVersion(version);
+    } catch (apiError) {
+        console.warn('GitHub API 版本请求失败，尝试 Raw 回退');
+        try {
+            const version = await fetchVersion(VERSION_URL.RAW, 'GitHub Raw 请求失败', {
+                cache: 'no-store'
+            });
+            return normalizeVersion(version);
+        } catch (rawError) {
+            throw new Error('无法获取最新版本信息');
+        }
+    }
 }
 
 // 版本检查函数
@@ -34,49 +82,25 @@ async function checkForUpdates() {
             cache: 'no-store'
         });
         
-        // 获取最新版本
-        let latestVersion;
-        const VERSION_URL = {
-            PROXY: 'https://ghfast.top/raw.githubusercontent.com/LibreSpark/LibreTV/main/VERSION.txt',
-            DIRECT: 'https://raw.githubusercontent.com/LibreSpark/LibreTV/main/VERSION.txt'
-        };
-        const FETCH_TIMEOUT = 1500;
-        
+        const cleanCurrentVersion = normalizeVersion(currentVersion);
+        let cleanLatestVersion = null;
         try {
-            // 尝试使用代理URL获取最新版本
-            const proxyPromise = fetchVersion(VERSION_URL.PROXY, '代理请求失败');
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('代理请求超时')), FETCH_TIMEOUT)
-            );
-            
-            latestVersion = await Promise.race([proxyPromise, timeoutPromise]);
-            console.log('通过代理服务器获取版本成功');
+            cleanLatestVersion = await fetchLatestVersion();
         } catch (error) {
-            console.log('代理请求失败，尝试直接请求:', error.message);
-            try {
-                // 代理失败后尝试直接获取
-                latestVersion = await fetchVersion(VERSION_URL.DIRECT, '获取最新版本失败');
-                console.log('直接请求获取版本成功');
-            } catch (directError) {
-                console.error('所有版本检查请求均失败:', directError);
-                throw new Error('无法获取最新版本信息');
-            }
+            console.warn('暂时无法检查最新版本');
         }
-        
-        console.log('当前版本:', currentVersion);
-        console.log('最新版本:', latestVersion);
-        
-        // 清理版本字符串（移除可能的空格或换行符）
-        const cleanCurrentVersion = currentVersion.trim();
-        const cleanLatestVersion = latestVersion.trim();
-        
+
         // 返回版本信息
         return {
             current: cleanCurrentVersion,
             latest: cleanLatestVersion,
-            hasUpdate: parseInt(cleanLatestVersion) > parseInt(cleanCurrentVersion),
+            hasUpdate: cleanLatestVersion === null
+                ? null
+                : parseInt(cleanLatestVersion) > parseInt(cleanCurrentVersion),
             currentFormatted: formatVersion(cleanCurrentVersion),
-            latestFormatted: formatVersion(cleanLatestVersion)
+            latestFormatted: cleanLatestVersion === null
+                ? null
+                : formatVersion(cleanLatestVersion)
         };
     } catch (error) {
         console.error('版本检测出错:', error);
@@ -136,7 +160,7 @@ function addVersionInfoToFooter() {
         versionElement.innerHTML = `版本: ${result.currentFormatted}`;
         
         // 如果有更新，添加更新提示
-        if (result.hasUpdate) {
+        if (result.hasUpdate === true) {
             versionElement.innerHTML += ` <span class="inline-flex items-center bg-red-600 text-white text-xs px-2 py-0.5 rounded-md ml-1 cursor-pointer animate-pulse font-medium">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -148,13 +172,15 @@ function addVersionInfoToFooter() {
                 const updateBtn = versionElement.querySelector('span');
                 if (updateBtn) {
                     updateBtn.addEventListener('click', () => {
-                        window.open('https://github.com/LibreSpark/LibreTV', '_blank');
+                        window.open('https://github.com/wxst/LibreTV/releases', '_blank');
                     });
                 }
             }, 100);
-        } else {
+        } else if (result.hasUpdate === false) {
             // 如果没有更新，显示当前版本为最新版本
             versionElement.innerHTML = `版本: ${result.currentFormatted} <span class="text-green-500">(最新版本)</span>`;
+        } else {
+            versionElement.innerHTML += ' <span class="text-amber-500" title="暂时无法连接版本源">(更新检查不可用)</span>';
         }
         
         // 显示版本元素

@@ -22,6 +22,24 @@ async function loadBrowserConfig() {
   return sandbox.window;
 }
 
+async function loadVersionChecker(fetchImpl) {
+  const sandbox = {
+    AbortController,
+    clearTimeout,
+    console: { log() {}, warn() {}, error() {} },
+    document: {
+      createElement: () => ({}),
+      head: { appendChild() {} },
+      addEventListener() {}
+    },
+    fetch: fetchImpl,
+    setTimeout
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/version-check.js'), sandbox);
+  return sandbox;
+}
+
 function createElementStub(tagName = 'div') {
   return {
     tagName,
@@ -1116,13 +1134,70 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.18');
-  assert.equal(lockJson.version, '1.2.18');
-  assert.equal(lockJson.packages[''].version, '1.2.18');
-  assert.match(config, /version:\s*'1\.2\.18'/);
+  assert.equal(packageJson.version, '1.2.19');
+  assert.equal(lockJson.version, '1.2.19');
+  assert.equal(lockJson.packages[''].version, '1.2.19');
+  assert.match(config, /version:\s*'1\.2\.19'/);
+  assert.match(changelog, /## 1\.2\.19 - 2026-09-23[\s\S]*?maintained repository/);
   assert.match(changelog, /## 1\.2\.18 - 2026-09-23[\s\S]*?conflicting mask overrides/);
   assert.match(changelog, /## 1\.2\.17[\s\S]*?cast button now hides/);
   assert.match(changelog, /## 1\.2\.17[\s\S]*?inactive aspect ratio and flip/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
+});
+
+test('version checker reads the maintained repository through the GitHub API first', async () => {
+  const requests = [];
+  const versionChecker = await loadVersionChecker(async (url, options) => {
+    requests.push({ url, options });
+    return {
+      ok: true,
+      text: async () => url === '/VERSION.txt' ? '202609230002\n' : '202609230003\n'
+    };
+  });
+
+  const result = await versionChecker.checkForUpdates();
+
+  assert.equal(result.current, '202609230002');
+  assert.equal(result.latest, '202609230003');
+  assert.equal(result.hasUpdate, true);
+  assert.equal(requests[0].url, '/VERSION.txt');
+  assert.equal(requests[1].url, 'https://api.github.com/repos/wxst/LibreTV/contents/VERSION.txt?ref=main');
+  assert.equal(requests[1].options.headers.Accept, 'application/vnd.github.raw+json');
+});
+
+test('version checker falls back to maintained Raw and keeps local version during remote outage', async () => {
+  const requests = [];
+  const versionChecker = await loadVersionChecker(async (url) => {
+    requests.push(url);
+    if (url === '/VERSION.txt') {
+      return { ok: true, text: async () => '202609230002\n' };
+    }
+    if (url.endsWith('/contents/VERSION.txt?ref=main')) {
+      return { ok: false, text: async () => '' };
+    }
+    if (url === 'https://raw.githubusercontent.com/wxst/LibreTV/main/VERSION.txt') {
+      return { ok: true, text: async () => '202609230003\n' };
+    }
+    throw new Error('unexpected request');
+  });
+
+  const result = await versionChecker.checkForUpdates();
+
+  assert.equal(requests[2], 'https://raw.githubusercontent.com/wxst/LibreTV/main/VERSION.txt');
+  assert.equal(result.current, '202609230002');
+  assert.equal(result.latest, '202609230003');
+  assert.equal(result.hasUpdate, true);
+
+  const offlineChecker = await loadVersionChecker(async (url) => {
+    if (url === '/VERSION.txt') {
+      return { ok: true, text: async () => '202609230002\n' };
+    }
+    throw new Error('offline');
+  });
+  const offlineResult = await offlineChecker.checkForUpdates();
+
+  assert.equal(offlineResult.current, '202609230002');
+  assert.equal(offlineResult.latest, null);
+  assert.equal(offlineResult.hasUpdate, null);
 });
