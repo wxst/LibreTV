@@ -2,6 +2,13 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.19 - 2026-09-23
+
+### Fixed
+
+- Fixed version checks to use the maintained repository and GitHub API with a Raw fallback.
+- The footer now keeps showing the deployed version when the remote update check is unavailable.
+
 ## 1.2.18 - 2026-09-23
 
 ### Fixed
