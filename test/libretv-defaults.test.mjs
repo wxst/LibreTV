@@ -900,6 +900,15 @@ test('player modernization upgrades libraries and removes legacy DPlayer hooks',
   assert.doesNotMatch(playerStyles, /dplayer/i);
 });
 
+test('paused player state icon remains centered and loading mask behavior is native', async () => {
+  const player = await readProjectFile('js/player.js');
+  const playerStyles = await readProjectFile('css/player.css');
+
+  assert.match(player, /icons:\s*\{\s*state:\s*'<svg[^']+width="80" height="80"/);
+  assert.doesNotMatch(playerStyles, /#player \.art-mask\s*\{[^}]*display:\s*flex\s*!important/s);
+  assert.doesNotMatch(playerStyles, /#player \.art-state\s*\{[^}]*transform:\s*none\s*!important/s);
+});
+
 test('player HLS config increases buffering with a low resource fallback', async () => {
   const player = await readProjectFile('js/player.js');
 
@@ -1107,13 +1116,13 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.17');
-  assert.equal(lockJson.version, '1.2.17');
-  assert.equal(lockJson.packages[''].version, '1.2.17');
-  assert.match(config, /version:\s*'1\.2\.17'/);
-  assert.match(changelog, /1\.2\.17/);
-  assert.match(changelog, /cast button now hides/);
-  assert.match(changelog, /inactive aspect ratio and flip/);
+  assert.equal(packageJson.version, '1.2.18');
+  assert.equal(lockJson.version, '1.2.18');
+  assert.equal(lockJson.packages[''].version, '1.2.18');
+  assert.match(config, /version:\s*'1\.2\.18'/);
+  assert.match(changelog, /## 1\.2\.18 - 2026-09-23[\s\S]*?conflicting mask overrides/);
+  assert.match(changelog, /## 1\.2\.17[\s\S]*?cast button now hides/);
+  assert.match(changelog, /## 1\.2\.17[\s\S]*?inactive aspect ratio and flip/);
   assert.match(versionTxt, /^\d{12}$/);
   assert.ok(Number(versionTxt) > 202508060117);
 });
