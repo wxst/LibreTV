@@ -135,6 +135,8 @@ function updateSiteStatus(isAvailable) {
 }
 
 function closeModal() {
+    window.cancelMovieSourceSpeedChecks?.();
+    window.cancelResourceSwitchSpeedChecks?.();
     document.getElementById('modal').classList.add('hidden');
     // 清除 iframe 内容
     document.getElementById('modalContent').innerHTML = '';

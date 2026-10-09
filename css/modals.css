@@ -239,6 +239,10 @@
     color: #ef4444;
 }
 
+.speed-indicator.pending {
+    color: #fbbf24;
+}
+
 /* 资源卡片悬停效果增强 */
 .resource-card {
     transition: all 0.2s ease;
@@ -263,3 +267,74 @@
     border-radius: 4px;
     padding: 2px 4px;
 }
+
+.source-probe-panel {
+    margin-bottom: 1.25rem;
+    padding: 1rem;
+    border: 1px solid #334155;
+    border-radius: 0.75rem;
+    background: #17212f;
+}
+
+.source-probe-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.75rem;
+    margin-bottom: 0.75rem;
+    color: #e2e8f0;
+}
+
+.source-probe-heading span {
+    color: #94a3b8;
+    font-size: 0.75rem;
+}
+
+.source-probe-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.5rem;
+}
+
+.source-probe-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #334155;
+    border-radius: 0.5rem;
+    background: #0f172a;
+    color: #e2e8f0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.source-probe-option:hover:not(:disabled),
+.source-probe-option.is-active {
+    border-color: #38bdf8;
+    background: #172c42;
+}
+
+.source-probe-option:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.source-probe-name {
+    overflow: hidden;
+    width: 100%;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.source-probe-status {
+    font-size: 0.75rem;
+}
+
+.source-probe-status.pending { color: #fbbf24; }
+.source-probe-status.good { color: #34d399; }
+.source-probe-status.unavailable { color: #f87171; }

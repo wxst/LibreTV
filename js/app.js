@@ -8,6 +8,9 @@ let currentEpisodeIndex = 0;
 let currentEpisodes = [];
 // 添加当前视频的标题
 let currentVideoTitle = '';
+let currentSearchResults = [];
+let activeMovieSourceSession = null;
+let movieDetailRequestId = 0;
 // 全局变量用于倒序状态
 let episodesReversed = false;
 
@@ -812,6 +815,7 @@ async function search() {
             // 如果名称相同，则按照来源排序
             return (a.source_name || '').localeCompare(b.source_name || '');
         });
+        currentSearchResults = allResults;
 
         // 更新搜索结果计数
         const searchResultsCount = document.getElementById('searchResultsCount');
@@ -997,6 +1001,171 @@ function hookInput() {
 }
 document.addEventListener('DOMContentLoaded', hookInput);
 
+function normalizeMovieSourceTitle(title) {
+    return String(title || '').toLowerCase().replace(/\s+/g, '');
+}
+
+function movieSourceName(sourceCode) {
+    if (API_SITES[sourceCode]) return API_SITES[sourceCode].name;
+    if (sourceCode.startsWith('custom_')) {
+        return getCustomApiInfo(sourceCode.slice(7))?.name || '自定义资源';
+    }
+    return sourceCode;
+}
+
+function renderMovieSourcePanel(session) {
+    const options = session.entries.map((entry, index) => {
+        let status = '测速中…';
+        let statusClass = 'pending';
+        if (entry.status === 'ok') {
+            status = entry.kbps >= 1024
+                ? `约 ${(entry.kbps / 1024).toFixed(1)} MB/s`
+                : `约 ${entry.kbps} KB/s`;
+            statusClass = 'good';
+        } else if (entry.status === 'missing') {
+            status = '无同名影片';
+            statusClass = 'unavailable';
+        } else if (entry.status === 'error') {
+            status = entry.error || '测速失败';
+            statusClass = 'unavailable';
+        }
+        return `<button type="button" class="source-probe-option ${index === session.selectedIndex ? 'is-active' : ''}"
+                    onclick="selectMovieSource(${index})" ${entry.vodId ? '' : 'disabled'}>
+                    <span class="source-probe-name">${escapeHtmlAttr(entry.name)}</span>
+                    <span class="source-probe-status ${statusClass}">${escapeHtmlAttr(status)}</span>
+                </button>`;
+    }).join('');
+    return `<section id="movieSourcePanel" class="source-probe-panel" aria-label="可选资源测速">
+                <div class="source-probe-heading">
+                    <strong>选择资源</strong><span>正在抽样测速，每项最多读取 64 KB；速率仅供参考</span>
+                </div>
+                <div class="source-probe-options">${options}</div>
+            </section>`;
+}
+
+function refreshMovieSourcePanel(session) {
+    if (activeMovieSourceSession !== session) return;
+    const panel = document.getElementById('movieSourcePanel');
+    if (panel) panel.outerHTML = renderMovieSourcePanel(session);
+}
+
+function movieDetailParams(sourceCode) {
+    if (!sourceCode.startsWith('custom_')) return `&source=${encodeURIComponent(sourceCode)}`;
+    const customApi = getCustomApiInfo(sourceCode.slice(7));
+    if (!customApi) throw new Error('自定义API配置无效');
+    let params = `&customApi=${encodeURIComponent(customApi.url)}&source=custom`;
+    if (customApi.detail) params += `&customDetail=${encodeURIComponent(customApi.detail)}`;
+    return params;
+}
+
+function loadMovieSourceDetail(session, entry) {
+    if (!entry.detailPromise) {
+        const params = movieDetailParams(entry.sourceCode);
+        entry.detailPromise = fetch(`/api/detail?id=${encodeURIComponent(entry.vodId)}${params}&_t=${Date.now()}`, {
+            signal: session.controller.signal
+        }).then(async response => {
+            if (!response.ok) throw new Error(`详情请求失败 (${response.status})`);
+            return response.json();
+        });
+    }
+    return entry.detailPromise;
+}
+
+function createMovieSourceSession(id, title, sourceCode) {
+    const normalizedTitle = normalizeMovieSourceTitle(title);
+    const existing = activeMovieSourceSession;
+    if (existing?.titleKey === normalizedTitle &&
+        existing.entries.some(entry => entry.sourceCode === sourceCode && String(entry.vodId) === String(id))) {
+        return { session: existing, isNew: false };
+    }
+    existing?.controller.abort();
+
+    const fromSearchResults = currentSearchResults.some(item =>
+        item.source_code === sourceCode && String(item.vod_id) === String(id));
+    const sourceIds = [...new Set([sourceCode, ...getSearchableApiIds(selectedAPIs)])];
+    const entries = sourceIds.map(key => {
+        const match = fromSearchResults && currentSearchResults.find(item =>
+            item.source_code === key && normalizeMovieSourceTitle(item.vod_name) === normalizedTitle);
+        const vodId = key === sourceCode ? id : (match?.vod_id || '');
+        return {
+            sourceCode: key,
+            name: movieSourceName(key),
+            vodId,
+            vodName: key === sourceCode ? title : (match?.vod_name || title),
+            status: vodId ? 'pending' : (fromSearchResults ? 'missing' : 'searching'),
+            detailPromise: null,
+            kbps: 0,
+            error: ''
+        };
+    });
+    const session = {
+        title,
+        titleKey: normalizedTitle,
+        entries,
+        selectedIndex: entries.findIndex(entry => entry.sourceCode === sourceCode),
+        controller: new AbortController()
+    };
+    activeMovieSourceSession = session;
+    return { session, isNew: true };
+}
+
+async function checkMovieSource(session, entry) {
+    try {
+        if (!entry.vodId) {
+            const results = await searchByAPIAndKeyWord(entry.sourceCode, session.title);
+            const match = results.find(item => normalizeMovieSourceTitle(item.vod_name) === session.titleKey);
+            if (!match) {
+                entry.status = 'missing';
+                return;
+            }
+            entry.vodId = match.vod_id;
+            entry.vodName = match.vod_name;
+        }
+        entry.status = 'testing';
+        refreshMovieSourcePanel(session);
+        const detail = await loadMovieSourceDetail(session, entry);
+        const episodes = Array.isArray(detail.episodes) ? detail.episodes : [];
+        const playableUrl = episodes.find(url => /^https?:\/\/.+\.(m3u8|mp4|webm|mov|m4v|ts)(\?.*)?$/i.test(url));
+        if (!playableUrl) throw new Error('无可播放地址');
+        const result = await window.SourceSpeed.probeEpisodeUrl(playableUrl, {
+            signal: session.controller.signal
+        });
+        entry.kbps = result.kbps;
+        entry.status = 'ok';
+    } catch (error) {
+        if (session.controller.signal.aborted) return;
+        entry.error = error?.message === '测速超时' ? '测速超时' : '不可用';
+        entry.status = 'error';
+    } finally {
+        refreshMovieSourcePanel(session);
+    }
+}
+
+function startMovieSourceChecks(session) {
+    let nextIndex = 0;
+    const worker = async () => {
+        while (nextIndex < session.entries.length && !session.controller.signal.aborted) {
+            const entry = session.entries[nextIndex++];
+            if (entry.status !== 'missing') await checkMovieSource(session, entry);
+        }
+    };
+    void Promise.all(Array.from({ length: Math.min(3, session.entries.length) }, worker));
+}
+
+function selectMovieSource(index) {
+    const session = activeMovieSourceSession;
+    const entry = session?.entries[index];
+    if (!entry?.vodId) return;
+    session.selectedIndex = index;
+    showDetails(entry.vodId, entry.vodName, entry.sourceCode);
+}
+
+window.cancelMovieSourceSpeedChecks = () => {
+    activeMovieSourceSession?.controller.abort();
+    activeMovieSourceSession = null;
+    movieDetailRequestId += 1;
+};
+
 // 显示详情 - 修改为支持自定义API
 async function showDetails(id, vod_name, sourceCode) {
     // 密码保护校验
@@ -1011,49 +1180,23 @@ async function showDetails(id, vod_name, sourceCode) {
         return;
     }
 
-    showLoading();
+    const { session, isNew } = createMovieSourceSession(id, vod_name, sourceCode);
+    const entry = session.entries[session.selectedIndex];
+    const requestId = ++movieDetailRequestId;
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalContent = document.getElementById('modalContent');
+    modalTitle.textContent = `${vod_name || '未知视频'} (${entry.name})`;
+    modalContent.innerHTML = `${renderMovieSourcePanel(session)}
+        <div id="movieDetailBody" class="text-center py-8 text-gray-400">正在获取影片详情...</div>`;
+    modal.classList.remove('hidden');
+    currentVideoTitle = vod_name || '未知视频';
+    if (isNew) startMovieSourceChecks(session);
+
     try {
-        // 构建API参数
-        let apiParams = '';
-
-        // 处理自定义API源
-        if (sourceCode.startsWith('custom_')) {
-            const customIndex = sourceCode.replace('custom_', '');
-            const customApi = getCustomApiInfo(customIndex);
-            if (!customApi) {
-                showToast('自定义API配置无效', 'error');
-                hideLoading();
-                return;
-            }
-            // 传递 detail 字段
-            if (customApi.detail) {
-                apiParams = '&customApi=' + encodeURIComponent(customApi.url) + '&customDetail=' + encodeURIComponent(customApi.detail) + '&source=custom';
-            } else {
-                apiParams = '&customApi=' + encodeURIComponent(customApi.url) + '&source=custom';
-            }
-        } else {
-            // 内置API
-            apiParams = '&source=' + sourceCode;
-        }
-
-        // Add a timestamp to prevent caching
-        const timestamp = new Date().getTime();
-        const cacheBuster = `&_t=${timestamp}`;
-        const response = await fetch(`/api/detail?id=${encodeURIComponent(id)}${apiParams}${cacheBuster}`);
-
-        const data = await response.json();
-
-        const modal = document.getElementById('modal');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalContent = document.getElementById('modalContent');
-
-        // 显示来源信息
-        const sourceName = data.videoInfo && data.videoInfo.source_name ?
-            ` <span class="text-sm font-normal text-gray-400">(${data.videoInfo.source_name})</span>` : '';
-
-        // 不对标题进行截断处理，允许完整显示
-        modalTitle.innerHTML = `<span class="break-words">${vod_name || '未知视频'}</span>${sourceName}`;
-        currentVideoTitle = vod_name || '未知视频';
+        const data = await loadMovieSourceDetail(session, entry);
+        if (activeMovieSourceSession !== session || requestId !== movieDetailRequestId) return;
+        const detailBody = document.getElementById('movieDetailBody');
 
         if (data.episodes && data.episodes.length > 0) {
             // 构建详情信息HTML
@@ -1090,7 +1233,7 @@ async function showDetails(id, vod_name, sourceCode) {
             currentEpisodes = data.episodes;
             currentEpisodeIndex = 0;
 
-            modalContent.innerHTML = `
+            detailBody.innerHTML = `
                 ${detailInfoHtml}
                 <div class="flex flex-wrap items-center justify-between mb-4 gap-2">
                     <div class="flex items-center gap-2">
@@ -1112,7 +1255,7 @@ async function showDetails(id, vod_name, sourceCode) {
                 </div>
             `;
         } else {
-            modalContent.innerHTML = `
+            detailBody.innerHTML = `
                 <div class="text-center py-8">
                     <div class="text-red-400 mb-2">❌ 未找到播放资源</div>
                     <div class="text-gray-500 text-sm">该视频可能暂时无法播放，请尝试其他视频</div>
@@ -1120,12 +1263,11 @@ async function showDetails(id, vod_name, sourceCode) {
             `;
         }
 
-        modal.classList.remove('hidden');
     } catch (error) {
+        if (activeMovieSourceSession !== session || requestId !== movieDetailRequestId) return;
         console.error('获取详情错误:', error);
-        showToast('获取详情失败，请稍后重试', 'error');
-    } finally {
-        hideLoading();
+        document.getElementById('movieDetailBody').innerHTML =
+            '<div class="text-center py-8 text-red-400">获取详情失败，请选择其他资源或稍后重试</div>';
     }
 }
 

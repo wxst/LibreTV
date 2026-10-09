@@ -520,6 +520,31 @@ export async function onRequest(context) {
             return createResponse("无效的代理请求。路径应为 /proxy/<经过编码的URL>", 400);
         }
 
+        // Speed checks read at most 64 KiB and never enter the normal media cache.
+        // Stream the upstream response so an ignored Range header cannot make the
+        // Function buffer an entire video segment before the browser can cancel it.
+        if (url.searchParams.get('probe') === '1') {
+            const range = request.headers.get('Range') || '';
+            const rangeEnd = /^bytes=0-(\d+)$/.exec(range);
+            if (!rangeEnd || Number(rangeEnd[1]) > 65535) {
+                return createResponse('无效的测速范围', 400, { 'Cache-Control': 'no-store' });
+            }
+            const headers = new Headers({
+                'User-Agent': getRandomUserAgent(),
+                'Accept': '*/*',
+                'Referer': getTargetReferer(targetUrl),
+                'Range': range
+            });
+            const upstream = await fetch(targetUrl, { headers, redirect: 'follow' });
+            const responseHeaders = new Headers({
+                'Content-Type': upstream.headers.get('Content-Type') || 'application/octet-stream',
+                'Cache-Control': 'no-store'
+            });
+            const contentRange = upstream.headers.get('Content-Range');
+            if (contentRange) responseHeaders.set('Content-Range', contentRange);
+            return createResponse(upstream.body, upstream.status, responseHeaders);
+        }
+
         logDebug(`收到代理请求: ${targetUrl}`);
 
         // --- 缓存检查 (KV) ---

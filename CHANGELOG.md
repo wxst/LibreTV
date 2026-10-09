@@ -2,6 +2,17 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.20 - 2026-10-10
+
+### Added
+
+- Movie details now show each matching source immediately and update its source speed as a small media sample completes.
+- Resource switching in the player now shows actual sampled transfer rates instead of API response times.
+
+### Changed
+
+- Cloudflare Pages proxy streams authenticated, uncached range probes capped at 64 KiB so source comparisons do not buffer full media files.
+
 ## 1.2.19 - 2026-09-23
 
 ### Fixed
