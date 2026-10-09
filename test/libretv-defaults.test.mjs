@@ -1130,14 +1130,18 @@ test('release metadata is bumped for this update', async () => {
   const packageJson = JSON.parse(await readProjectFile('package.json'));
   const lockJson = JSON.parse(await readProjectFile('package-lock.json'));
   const config = await readProjectFile('js/config.js');
+  const serviceWorker = await readProjectFile('service-worker.js');
   const versionTxt = (await readProjectFile('VERSION.txt')).trim();
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.19');
-  assert.equal(lockJson.version, '1.2.19');
-  assert.equal(lockJson.packages[''].version, '1.2.19');
-  assert.match(config, /version:\s*'1\.2\.19'/);
+  assert.equal(packageJson.version, '1.2.20');
+  assert.equal(lockJson.version, '1.2.20');
+  assert.equal(lockJson.packages[''].version, '1.2.20');
+  assert.match(config, /version:\s*'1\.2\.20'/);
+  assert.match(serviceWorker, /const APP_VERSION = '202610100137'/);
+  assert.match(serviceWorker, /'\/js\/source-speed\.js'/);
+  assert.match(changelog, /## 1\.2\.20 - 2026-10-10[\s\S]*?source speed/);
   assert.match(changelog, /## 1\.2\.19 - 2026-09-23[\s\S]*?maintained repository/);
   assert.match(changelog, /## 1\.2\.18 - 2026-09-23[\s\S]*?conflicting mask overrides/);
   assert.match(changelog, /## 1\.2\.17[\s\S]*?cast button now hides/);

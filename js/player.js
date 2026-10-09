@@ -1869,6 +1869,7 @@ function restoreModalHome(modal = document.getElementById('modal')) {
 }
 
 function closeModal() {
+    window.cancelResourceSwitchSpeedChecks?.();
     const modal = document.getElementById('modal');
     if (modal) {
         modal.classList.add('hidden');
@@ -2547,18 +2548,23 @@ function renderResourceInfoBar() {
     `;
 }
 
-// 测试视频源速率的函数
-async function testVideoSourceSpeed(sourceKey, vodId) {
+let resourceSwitchProbeController = null;
+
+window.cancelResourceSwitchSpeedChecks = () => {
+    resourceSwitchProbeController?.abort();
+    resourceSwitchProbeController = null;
+};
+
+// 测量一个来源首个可播放媒体片段的实际传输速率。
+async function testVideoSourceSpeed(sourceKey, vodId, signal) {
     try {
-        const startTime = performance.now();
-        
         // 构建API参数
         let apiParams = '';
         if (sourceKey.startsWith('custom_')) {
             const customIndex = sourceKey.replace('custom_', '');
             const customApi = getCustomApiInfo(customIndex);
             if (!customApi) {
-                return { speed: -1, error: 'API配置无效' };
+                return { kbps: -1, error: 'API配置无效' };
             }
             if (customApi.detail) {
                 apiParams = '&customApi=' + encodeURIComponent(customApi.url) + '&customDetail=' + encodeURIComponent(customApi.detail) + '&source=custom';
@@ -2576,86 +2582,49 @@ async function testVideoSourceSpeed(sourceKey, vodId) {
         // 获取视频详情
         const response = await fetch(`/api/detail?id=${encodeURIComponent(vodId)}${apiParams}${cacheBuster}`, {
             method: 'GET',
-            cache: 'no-cache'
+            cache: 'no-cache',
+            signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(8000)]) : AbortSignal.timeout(8000)
         });
         
         if (!response.ok) {
-            return { speed: -1, error: '获取失败' };
+            return { kbps: -1, error: '获取失败' };
         }
         
         const data = await response.json();
         
         if (!data.episodes || data.episodes.length === 0) {
-            return { speed: -1, error: '无播放源' };
+            return { kbps: -1, error: '无播放源' };
         }
         
-        // 测试第一个播放链接的响应速度
-        const firstEpisodeUrl = data.episodes[0];
+        const firstEpisodeUrl = data.episodes.find(isDirectPlayableVideoUrl);
         if (!firstEpisodeUrl) {
-            return { speed: -1, error: '链接无效' };
+            return { kbps: -1, error: '链接无效' };
         }
-        
-        // 测试视频链接响应时间
-        const videoTestStart = performance.now();
-        try {
-            const videoResponse = await fetch(firstEpisodeUrl, {
-                method: 'HEAD',
-                mode: 'no-cors',
-                cache: 'no-cache',
-                signal: AbortSignal.timeout(5000) // 5秒超时
-            });
-            
-            const videoTestEnd = performance.now();
-            const totalTime = videoTestEnd - startTime;
-            
-            // 返回总响应时间（毫秒）
-            return { 
-                speed: Math.round(totalTime),
-                episodes: data.episodes.length,
-                error: null 
-            };
-        } catch (videoError) {
-            // 如果视频链接测试失败，只返回API响应时间
-            const apiTime = performance.now() - startTime;
-            return { 
-                speed: Math.round(apiTime),
-                episodes: data.episodes.length,
-                error: null,
-                note: 'API响应' 
-            };
-        }
-        
+        const sample = await window.SourceSpeed.probeEpisodeUrl(firstEpisodeUrl, { signal });
+        return { kbps: sample.kbps, episodes: data.episodes.length, error: null };
     } catch (error) {
-        return { 
-            speed: -1, 
-            error: error.name === 'AbortError' ? '超时' : '测试失败' 
-        };
+        return { kbps: -1, error: error.name === 'AbortError' || error.message === '测速超时' ? '超时' : '不可用' };
     }
 }
 
 // 格式化速度显示
 function formatSpeedDisplay(speedResult) {
-    if (speedResult.speed === -1) {
+    if (!speedResult) {
+        return '<span class="speed-indicator pending">测速中…</span>';
+    }
+    if (speedResult.kbps === -1) {
         return `<span class="speed-indicator error">❌ ${speedResult.error}</span>`;
     }
-    
-    const speed = speedResult.speed;
-    let className = 'speed-indicator good';
-    let icon = '🟢';
-    
-    if (speed > 2000) {
-        className = 'speed-indicator poor';
-        icon = '🔴';
-    } else if (speed > 1000) {
-        className = 'speed-indicator medium';
-        icon = '🟡';
-    }
-    
-    const note = speedResult.note ? ` (${speedResult.note})` : '';
-    return `<span class="${className}">${icon} ${speed}ms${note}</span>`;
+    const rate = speedResult.kbps >= 1024
+        ? `${(speedResult.kbps / 1024).toFixed(1)} MB/s`
+        : `${speedResult.kbps} KB/s`;
+    return `<span class="speed-indicator good">约 ${rate}</span>`;
 }
 
 async function showSwitchResourceModal() {
+    window.cancelResourceSwitchSpeedChecks();
+    const probeController = new AbortController();
+    resourceSwitchProbeController = probeController;
     const urlParams = new URLSearchParams(window.location.search);
     const currentSourceCode = urlParams.get('source');
     const currentVideoId = urlParams.get('id');
@@ -2701,59 +2670,39 @@ async function showSwitchResourceModal() {
         })
         allResults[opt.key] = result;
     }));
+    if (probeController.signal.aborted) return;
 
     if (Object.keys(allResults).length === 0) {
         modalContent.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;grid-column:1/-1;">未找到可切换资源，请稍后重试或更换片名搜索。</div>';
         return;
     }
 
-    // 更新状态显示：开始速率测试
-    modalContent.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;grid-column:1/-1;">正在测试各资源速率...</div>';
-
-    // 同时测试所有资源的速率
     const speedResults = {};
-    await Promise.all(Object.entries(allResults).map(async ([sourceKey, result]) => {
-        if (result) {
-            speedResults[sourceKey] = await testVideoSourceSpeed(sourceKey, result.vod_id);
-        }
-    }));
-
-    // 对结果进行排序
     const sortedResults = Object.entries(allResults).sort(([keyA, resultA], [keyB, resultB]) => {
         // 当前播放的源放在最前面
         const isCurrentA = String(keyA) === String(currentSourceCode) && String(resultA.vod_id) === String(currentVideoId);
         const isCurrentB = String(keyB) === String(currentSourceCode) && String(resultB.vod_id) === String(currentVideoId);
-        
         if (isCurrentA && !isCurrentB) return -1;
         if (!isCurrentA && isCurrentB) return 1;
-        
-        // 其余按照速度排序，速度快的在前面（速度为-1表示失败，排到最后）
-        const speedA = speedResults[keyA]?.speed || 99999;
-        const speedB = speedResults[keyB]?.speed || 99999;
-        
-        if (speedA === -1 && speedB !== -1) return 1;
-        if (speedA !== -1 && speedB === -1) return -1;
-        if (speedA === -1 && speedB === -1) return 0;
-        
-        return speedA - speedB;
+        return 0;
     });
 
-    // 渲染资源列表
-    let html = '<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">';
+    // 先显示全部资源，再逐项更新采样速率。
+    let html = '<div class="resource-switch-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">';
     
-    for (const [sourceKey, result] of sortedResults) {
+    for (const [index, [sourceKey, result]] of sortedResults.entries()) {
         if (!result) continue;
         
         // 修复 isCurrentSource 判断，确保类型一致
         const isCurrentSource = String(sourceKey) === String(currentSourceCode) && String(result.vod_id) === String(currentVideoId);
         const sourceName = resourceOptions.find(opt => opt.key === sourceKey)?.name || '未知资源';
-        const speedResult = speedResults[sourceKey] || { speed: -1, error: '未测试' };
         const coverUrl = normalizeImageUrl(result.vod_pic);
         const safeCoverUrl = escapeHtmlAttr(coverUrl);
         const safeVodName = escapeHtmlAttr(result.vod_name);
         
         html += `
-            <div class="relative group ${isCurrentSource ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105 transition-transform'}" 
+            <div class="relative group ${isCurrentSource ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105 transition-transform'}"
+                 data-resource-card="${index}" data-current="${isCurrentSource}"
                  ${!isCurrentSource ? `onclick="switchToResource('${sourceKey}', '${result.vod_id}')"` : ''}>
                 <div class="aspect-[2/3] rounded-lg overflow-hidden bg-gray-800 relative">
                     <img src="${safeCoverUrl}" data-original-src="${safeCoverUrl}"
@@ -2763,15 +2712,14 @@ async function showSwitchResourceModal() {
                          loading="lazy" referrerpolicy="no-referrer">
                     
                     <!-- 速率显示在图片右上角 -->
-                    <div class="absolute top-1 right-1 speed-badge bg-black bg-opacity-75">
-                        ${formatSpeedDisplay(speedResult)}
+                    <div class="absolute top-1 right-1 speed-badge bg-black bg-opacity-75" data-speed-badge="${index}">
+                        ${formatSpeedDisplay(null)}
                     </div>
                 </div>
                 <div class="mt-2">
                     <div class="text-xs font-medium text-gray-200 truncate">${result.vod_name}</div>
                     <div class="text-[10px] text-gray-400 truncate">${sourceName}</div>
-                    <div class="text-[10px] text-gray-500 mt-1">
-                        ${speedResult.episodes ? `${speedResult.episodes}集` : ''}
+                    <div class="text-[10px] text-gray-500 mt-1" data-episode-count="${index}">
                     </div>
                 </div>
                 ${isCurrentSource ? `
@@ -2787,6 +2735,34 @@ async function showSwitchResourceModal() {
     
     html += '</div>';
     modalContent.innerHTML = html;
+
+    let nextIndex = 0;
+    const worker = async () => {
+        while (nextIndex < sortedResults.length && !probeController.signal.aborted) {
+            const index = nextIndex++;
+            const [sourceKey, result] = sortedResults[index];
+            const measured = await testVideoSourceSpeed(sourceKey, result.vod_id, probeController.signal);
+            if (probeController.signal.aborted || resourceSwitchProbeController !== probeController) return;
+            speedResults[sourceKey] = measured;
+            const badge = modalContent.querySelector(`[data-speed-badge="${index}"]`);
+            if (badge) badge.innerHTML = formatSpeedDisplay(measured);
+            const episodeCount = modalContent.querySelector(`[data-episode-count="${index}"]`);
+            if (episodeCount && measured.episodes) episodeCount.textContent = `${measured.episodes}集`;
+        }
+    };
+    void Promise.all(Array.from({ length: Math.min(3, sortedResults.length) }, worker)).then(() => {
+        if (probeController.signal.aborted || resourceSwitchProbeController !== probeController) return;
+        const grid = modalContent.querySelector('.resource-switch-grid');
+        if (!grid) return;
+        const cards = Array.from(grid.children);
+        cards.sort((a, b) => {
+            if (a.dataset.current !== b.dataset.current) return a.dataset.current === 'true' ? -1 : 1;
+            const keyA = sortedResults[Number(a.dataset.resourceCard)][0];
+            const keyB = sortedResults[Number(b.dataset.resourceCard)][0];
+            return (speedResults[keyB]?.kbps || -1) - (speedResults[keyA]?.kbps || -1);
+        });
+        cards.forEach(card => grid.appendChild(card));
+    });
 }
 
 // 切换资源的函数

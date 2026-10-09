@@ -1,4 +1,4 @@
-const APP_VERSION = '202609230002';
+const APP_VERSION = '202610100137';
 const APP_SHELL_CACHE = `libretv-shell-${APP_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
@@ -18,6 +18,7 @@ const APP_SHELL_ASSETS = [
   '/css/watch.css',
   '/js/config.js',
   '/js/proxy-auth.js',
+  '/js/source-speed.js',
   '/js/customer_site.js',
   '/js/ui.js',
   '/js/api.js',
