@@ -1018,16 +1018,17 @@ function renderMovieSourcePanel(session) {
         let status = '测速中…';
         let statusClass = 'pending';
         if (entry.status === 'ok') {
-            status = entry.kbps >= 1024
+            const rate = entry.kbps >= 1024
                 ? `约 ${(entry.kbps / 1024).toFixed(1)} MB/s`
                 : `约 ${entry.kbps} KB/s`;
+            status = entry.transport === 'proxy' ? `代理${rate}` : rate;
             statusClass = 'good';
         } else if (entry.status === 'missing') {
             status = '无同名影片';
             statusClass = 'unavailable';
         } else if (entry.status === 'error') {
             status = entry.error || '测速失败';
-            statusClass = 'unavailable';
+            statusClass = 'unmeasured';
         }
         return `<button type="button" class="source-probe-option ${index === session.selectedIndex ? 'is-active' : ''}"
                     onclick="selectMovieSource(${index})" ${entry.vodId ? '' : 'disabled'}>
@@ -1037,7 +1038,7 @@ function renderMovieSourcePanel(session) {
     }).join('');
     return `<section id="movieSourcePanel" class="source-probe-panel" aria-label="可选资源测速">
                 <div class="source-probe-heading">
-                    <strong>选择资源</strong><span>正在抽样测速，每项最多读取 64 KB；速率仅供参考</span>
+                    <strong>选择资源</strong><span>优先直连抽样，失败后代理抽样；速率仅供参考</span>
                 </div>
                 <div class="source-probe-options">${options}</div>
             </section>`;
@@ -1095,6 +1096,7 @@ function createMovieSourceSession(id, title, sourceCode) {
             status: vodId ? 'pending' : (fromSearchResults ? 'missing' : 'searching'),
             detailPromise: null,
             kbps: 0,
+            transport: '',
             error: ''
         };
     });
@@ -1131,10 +1133,11 @@ async function checkMovieSource(session, entry) {
             signal: session.controller.signal
         });
         entry.kbps = result.kbps;
+        entry.transport = result.transport;
         entry.status = 'ok';
     } catch (error) {
         if (session.controller.signal.aborted) return;
-        entry.error = error?.message === '测速超时' ? '测速超时' : '不可用';
+        entry.error = error?.message === '测速超时' ? '测速超时，可试播' : '未能测速，可试播';
         entry.status = 'error';
     } finally {
         refreshMovieSourcePanel(session);

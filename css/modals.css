@@ -337,4 +337,5 @@
 
 .source-probe-status.pending { color: #fbbf24; }
 .source-probe-status.good { color: #34d399; }
+.source-probe-status.unmeasured { color: #fbbf24; }
 .source-probe-status.unavailable { color: #f87171; }
