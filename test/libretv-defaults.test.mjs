@@ -68,6 +68,9 @@ function createElementStub(tagName = 'div') {
     insertAdjacentHTML(_position, html) {
       this.innerHTML += html;
     },
+    querySelector() {
+      return null;
+    },
     addEventListener() {},
     remove() {}
   };
@@ -841,6 +844,80 @@ test('adult recommendation tag uses selected adult sources instead of Douban', a
   assert.equal(requestedUrls.some(url => url.includes('wd=')), false);
 });
 
+test('home page loads Douban recommendations once even when initialized twice', async () => {
+  const storage = new Map([['doubanEnabled', 'true']]);
+  const toggleDot = createElementStub('div');
+  const toggleBg = { ...createElementStub('div'), nextElementSibling: toggleDot };
+  const doubanToggle = { ...createElementStub('input'), checked: false, nextElementSibling: toggleBg };
+  const elements = new Map([
+    ['doubanToggle', doubanToggle],
+    ['doubanArea', createElementStub('div')],
+    ['resultsArea', { ...createElementStub('div'), classList: { add() {}, remove() {}, contains: name => name === 'hidden' } }],
+    ['douban-results', createElementStub('div')],
+    ['douban-tags', createElementStub('div')]
+  ]);
+  let doubanListRequests = 0;
+  const sandbox = {
+    console,
+    URL,
+    window: { scrollTo() {} },
+    localStorage: {
+      getItem(key) {
+        return storage.get(key) || null;
+      },
+      setItem(key, value) {
+        storage.set(key, String(value));
+      }
+    },
+    document: {
+      addEventListener() {},
+      getElementById(id) {
+        return elements.get(id) || null;
+      },
+      createElement: createElementStub,
+      createDocumentFragment() {
+        return {
+          isFragment: true,
+          children: [],
+          appendChild(child) {
+            this.children.push(child);
+            return child;
+          }
+        };
+      },
+      querySelectorAll() {
+        return [];
+      }
+    },
+    fetch: async url => {
+      if (decodeURIComponent(String(url)).includes('search_subjects')) doubanListRequests += 1;
+      await new Promise(resolve => setTimeout(resolve, 5));
+      return {
+        ok: true,
+        async json() {
+          return { subjects: [{ title: '世界的主人', rate: '7.5', cover: '', url: '' }] };
+        }
+      };
+    },
+    setTimeout,
+    clearTimeout,
+    AbortController
+  };
+  sandbox.window.scrollTo = () => {};
+  sandbox.scrollTo = () => {};
+  vm.createContext(sandbox);
+  vm.runInContext(await readProjectFile('js/config.js'), sandbox);
+  vm.runInContext(await readProjectFile('js/douban.js'), sandbox);
+
+  // DOMContentLoaded, then again after the password check passes.
+  sandbox.initDouban();
+  sandbox.initDouban();
+  await new Promise(resolve => setTimeout(resolve, 30));
+
+  assert.equal(doubanListRequests, 1);
+  assert.equal(elements.get('douban-results').children.length, 1);
+});
+
 test('normal douban cards filter adult-looking subjects from regular tags', async () => {
   const container = createElementStub('div');
   const sandbox = {
@@ -1144,13 +1221,14 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.23');
-  assert.equal(lockJson.version, '1.2.23');
-  assert.equal(lockJson.packages[''].version, '1.2.23');
-  assert.match(config, /version:\s*'1\.2\.23'/);
-  assert.match(serviceWorker, /const APP_VERSION = '202610101530'/);
+  assert.equal(packageJson.version, '1.2.24');
+  assert.equal(lockJson.version, '1.2.24');
+  assert.equal(lockJson.packages[''].version, '1.2.24');
+  assert.match(config, /version:\s*'1\.2\.24'/);
+  assert.match(serviceWorker, /const APP_VERSION = '202610101600'/);
   assert.match(serviceWorker, /'\/css\/theme\.css'/);
   assert.match(serviceWorker, /'\/js\/source-speed\.js'/);
+  assert.match(changelog, /## 1\.2\.24 - 2026-10-10[\s\S]*?Douban recommendations load once/);
   assert.match(changelog, /## 1\.2\.23 - 2026-10-10[\s\S]*?real media segment/);
   assert.match(changelog, /## 1\.2\.22 - 2026-10-10[\s\S]*?modern theme/);
   assert.match(changelog, /## 1\.2\.21 - 2026-10-10[\s\S]*?direct media/);

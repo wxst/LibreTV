@@ -2,6 +2,13 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.24 - 2026-10-10
+
+### Fixed
+
+- Douban recommendations load once when the home page opens. Previously the list was fetched and rendered twice, or four times after the password check re-ran initialization, so every cover image loaded again.
+- `initDouban()` now runs its setup once, and later calls only refresh visibility. Identical in-flight recommendation requests are shared, and only the latest response is rendered when tags change quickly.
+
 ## 1.2.23 - 2026-10-10
 
 ### Fixed
