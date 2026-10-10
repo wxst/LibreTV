@@ -2,6 +2,14 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.22 - 2026-10-10
+
+### Changed
+
+- Redesigned the UI with a modern theme: animated aurora background, glassmorphism panels, gradient accents and refined motion across the home, player, about, diagnostics and offline pages.
+- Rebuilt the home page hero, search bar, Douban section, side panels and footer; all element IDs and handlers are unchanged.
+- Added `css/theme.css`, which also restyles script-generated cards, tags, episode buttons, modals and toasts without changing JavaScript, and respects `prefers-reduced-motion`.
+
 ## 1.2.21 - 2026-10-10
 
 ### Fixed
