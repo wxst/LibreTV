@@ -256,6 +256,15 @@ test('PWA registration handles failures and app updates safely', async () => {
   assert.match(registration, /controllerchange/);
 });
 
+test('service worker updates never force the open page to reload', async () => {
+  const registration = await readProjectFile('js/pwa-register.js');
+  const sw = await readProjectFile('service-worker.js');
+
+  assert.doesNotMatch(registration, /location\.reload/);
+  assert.match(sw, /function isLongLivedAsset/);
+  assert.match(sw, /event\.request\.mode === 'navigate' \|\| !isLongLivedAsset\(event\.request\)/);
+});
+
 test('public deployment URLs are not exposed in current tracked files', async () => {
   const checkedFiles = [
     'README.md',
@@ -1135,13 +1144,14 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.22');
-  assert.equal(lockJson.version, '1.2.22');
-  assert.equal(lockJson.packages[''].version, '1.2.22');
-  assert.match(config, /version:\s*'1\.2\.22'/);
-  assert.match(serviceWorker, /const APP_VERSION = '202610101400'/);
+  assert.equal(packageJson.version, '1.2.23');
+  assert.equal(lockJson.version, '1.2.23');
+  assert.equal(lockJson.packages[''].version, '1.2.23');
+  assert.match(config, /version:\s*'1\.2\.23'/);
+  assert.match(serviceWorker, /const APP_VERSION = '202610101530'/);
   assert.match(serviceWorker, /'\/css\/theme\.css'/);
   assert.match(serviceWorker, /'\/js\/source-speed\.js'/);
+  assert.match(changelog, /## 1\.2\.23 - 2026-10-10[\s\S]*?real media segment/);
   assert.match(changelog, /## 1\.2\.22 - 2026-10-10[\s\S]*?modern theme/);
   assert.match(changelog, /## 1\.2\.21 - 2026-10-10[\s\S]*?direct media/);
   assert.match(changelog, /## 1\.2\.20 - 2026-10-10[\s\S]*?source speed/);

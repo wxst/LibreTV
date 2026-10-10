@@ -2601,7 +2601,7 @@ async function testVideoSourceSpeed(sourceKey, vodId, signal) {
             return { kbps: -1, error: '链接无效' };
         }
         const sample = await window.SourceSpeed.probeEpisodeUrl(firstEpisodeUrl, { signal });
-        return { kbps: sample.kbps, transport: sample.transport, episodes: data.episodes.length, error: null };
+        return { ...sample, episodes: data.episodes.length, error: null };
     } catch (error) {
         return { kbps: -1, error: error.name === 'AbortError' || error.message === '测速超时' ? '测速超时，可试播' : '未能测速，可试播' };
     }
@@ -2615,10 +2615,9 @@ function formatSpeedDisplay(speedResult) {
     if (speedResult.kbps === -1) {
         return `<span class="speed-indicator pending">${speedResult.error}</span>`;
     }
-    const rate = speedResult.kbps >= 1024
-        ? `${(speedResult.kbps / 1024).toFixed(1)} MB/s`
-        : `${speedResult.kbps} KB/s`;
-    return `<span class="speed-indicator good">${speedResult.transport === 'proxy' ? '代理约' : '约'} ${rate}</span>`;
+    const { label, title } = window.SourceSpeed.describeResult(speedResult);
+    const tone = { smooth: 'good', ok: 'medium', slow: 'poor' }[speedResult.verdict] || 'good';
+    return `<span class="speed-indicator ${tone}" title="${escapeHtmlAttr(title)}">${escapeHtmlAttr(label)}</span>`;
 }
 
 async function showSwitchResourceModal() {
@@ -2759,7 +2758,7 @@ async function showSwitchResourceModal() {
             if (a.dataset.current !== b.dataset.current) return a.dataset.current === 'true' ? -1 : 1;
             const keyA = sortedResults[Number(a.dataset.resourceCard)][0];
             const keyB = sortedResults[Number(b.dataset.resourceCard)][0];
-            return (speedResults[keyB]?.kbps || -1) - (speedResults[keyA]?.kbps || -1);
+            return window.SourceSpeed.scoreResult(speedResults[keyB]) - window.SourceSpeed.scoreResult(speedResults[keyA]);
         });
         cards.forEach(card => grid.appendChild(card));
     });

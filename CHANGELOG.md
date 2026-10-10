@@ -2,6 +2,19 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.23 - 2026-10-10
+
+### Fixed
+
+- Source speed checks are now accurate. They read the complete HLS playlist (long playlists used to be cut at 64 KiB, leaving a broken segment URL), sample an early real media segment for up to 2.5 s or 2 MiB, and report throughput measured from the first byte separately from connection latency.
+- Speed samples run one source at a time so sources no longer compete for bandwidth.
+- Each source now shows a smoothness verdict (流畅 / 较流畅 / 可能卡顿) that compares throughput with the stream bitrate, taken from the master playlist or estimated from segment size and duration. The best source is marked 推荐, and the player's resource switcher ranks sources the same way.
+- The home page no longer reloads itself on the first visit or after a release. The service worker no longer forces a reload when it takes control, and app scripts and styles are now fetched network-first so a new release applies cleanly on the next navigation. The service worker also no longer intercepts third-party requests such as posters.
+
+### Changed
+
+- The Cloudflare Pages proxy speed probe now allows ranges up to 2 MiB.
+
 ## 1.2.22 - 2026-10-10
 
 ### Changed

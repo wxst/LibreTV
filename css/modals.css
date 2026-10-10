@@ -335,7 +335,24 @@
     font-size: 0.75rem;
 }
 
-.source-probe-status.pending { color: #fbbf24; }
+.source-probe-status.pending { color: #94a3b8; }
 .source-probe-status.good { color: #34d399; }
-.source-probe-status.unmeasured { color: #fbbf24; }
+.source-probe-status.medium { color: #fbbf24; }
+.source-probe-status.poor { color: #fb923c; }
+.source-probe-status.unmeasured { color: #94a3b8; }
 .source-probe-status.unavailable { color: #f87171; }
+
+.source-probe-option.is-best {
+    border-color: rgba(52, 211, 153, 0.55);
+}
+
+.source-probe-best {
+    margin-left: 0.4rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    vertical-align: 1px;
+    color: #052e1f;
+    background: #34d399;
+}
