@@ -125,7 +125,16 @@ function refreshDoubanAdultTagState() {
 let doubanInitialized = false;
 // 最近一次推荐请求的序号：只有最新请求的结果会被渲染
 let doubanRenderSeq = 0;
-let doubanPendingRequest = null;
+// 进行中的豆瓣列表请求（按请求地址共享），重复调用不会再次请求
+const doubanInflightRequests = new Map();
+
+function fetchDoubanDataShared(url) {
+    if (!doubanInflightRequests.has(url)) {
+        const request = fetchDoubanData(url).finally(() => doubanInflightRequests.delete(url));
+        doubanInflightRequests.set(url, request);
+    }
+    return doubanInflightRequests.get(url);
+}
 
 // 初始化豆瓣功能
 function initDouban() {
@@ -484,11 +493,6 @@ function renderRecommend(tag, pageLimit, pageStart) {
     const container = document.getElementById("douban-results");
     if (!container) return;
 
-    // 同一请求仍在进行中时直接复用，避免同一批封面被渲染两次
-    const requestKey = `${doubanMovieTvCurrentSwitch}|${tag}|${pageLimit}|${pageStart}`;
-    if (doubanPendingRequest?.key === requestKey) {
-        return doubanPendingRequest.promise;
-    }
     const requestId = ++doubanRenderSeq;
     const isCurrentRequest = () => requestId === doubanRenderSeq;
 
@@ -505,34 +509,27 @@ function renderRecommend(tag, pageLimit, pageStart) {
     container.querySelector('.douban-loading-overlay')?.remove();
     container.insertAdjacentHTML('beforeend', loadingOverlayHTML.replace('class="absolute', 'class="douban-loading-overlay absolute'));
 
-    let promise;
     if (tag === ADULT_RECOMMEND_TAG) {
-        promise = renderAdultRecommend(pageLimit, pageStart, isCurrentRequest);
-    } else {
-        const target = `https://movie.douban.com/j/search_subjects?type=${doubanMovieTvCurrentSwitch}&tag=${tag}&sort=recommend&page_limit=${pageLimit}&page_start=${pageStart}`;
-
-        // 使用通用请求函数
-        promise = fetchDoubanData(target)
-            .then(data => {
-                if (isCurrentRequest()) renderDoubanCards(data, container);
-            })
-            .catch(error => {
-                if (!isCurrentRequest()) return;
-                console.error("获取豆瓣数据失败：", error);
-                container.innerHTML = `
-                    <div class="col-span-full text-center py-8">
-                        <div class="text-red-400">❌ 获取豆瓣数据失败，请稍后重试</div>
-                        <div class="text-gray-500 text-sm mt-2">提示：使用VPN可能有助于解决此问题</div>
-                    </div>
-                `;
-            });
+        return renderAdultRecommend(pageLimit, pageStart, isCurrentRequest);
     }
 
-    const pending = { key: requestKey, promise };
-    doubanPendingRequest = pending;
-    return Promise.resolve(promise).finally(() => {
-        if (doubanPendingRequest === pending) doubanPendingRequest = null;
-    });
+    const target = `https://movie.douban.com/j/search_subjects?type=${doubanMovieTvCurrentSwitch}&tag=${tag}&sort=recommend&page_limit=${pageLimit}&page_start=${pageStart}`;
+
+    // 相同的请求共享同一份数据，但只有最新一次调用会渲染，避免同一批封面被渲染两次
+    return fetchDoubanDataShared(target)
+        .then(data => {
+            if (isCurrentRequest()) renderDoubanCards(data, container);
+        })
+        .catch(error => {
+            if (!isCurrentRequest()) return;
+            console.error("获取豆瓣数据失败：", error);
+            container.innerHTML = `
+                <div class="col-span-full text-center py-8">
+                    <div class="text-red-400">❌ 获取豆瓣数据失败，请稍后重试</div>
+                    <div class="text-gray-500 text-sm mt-2">提示：使用VPN可能有助于解决此问题</div>
+                </div>
+            `;
+        });
 }
 
 function escapeInlineJsString(value) {

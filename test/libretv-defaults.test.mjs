@@ -916,6 +916,17 @@ test('home page loads Douban recommendations once even when initialized twice', 
 
   assert.equal(doubanListRequests, 1);
   assert.equal(elements.get('douban-results').children.length, 1);
+
+  // Switching tags A -> B -> A quickly reuses the still-running request for A
+  // and renders only the latest choice.
+  doubanListRequests = 0;
+  elements.get('douban-results').children.length = 0;
+  sandbox.renderRecommend('热门', 16, 0);
+  sandbox.renderRecommend('最新', 16, 0);
+  sandbox.renderRecommend('热门', 16, 0);
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(doubanListRequests, 2);
+  assert.equal(elements.get('douban-results').children.length, 1);
 });
 
 test('normal douban cards filter adult-looking subjects from regular tags', async () => {
