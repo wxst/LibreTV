@@ -3,22 +3,24 @@
     const SAMPLE_BYTES = 64 * 1024;
     const TIMEOUT_MS = 8000;
 
-    async function fetchSample(targetUrl, signal) {
-        const proxyPrefix = typeof PROXY_URL === 'string' ? PROXY_URL : '/proxy/';
-        const proxyPath = proxyPrefix + encodeURIComponent(targetUrl);
-        const authorizedPath = window.ProxyAuth?.addAuthToProxyUrl
-            ? await window.ProxyAuth.addAuthToProxyUrl(proxyPath)
-            : proxyPath;
-        const requestUrl = new URL(authorizedPath, window.location?.origin || 'https://libretv.local');
-        requestUrl.searchParams.set('probe', '1');
-
+    async function requestSample(targetUrl, signal, throughProxy) {
+        let requestUrl = targetUrl;
+        const options = { cache: 'no-store', signal };
+        if (throughProxy) {
+            const proxyPrefix = typeof PROXY_URL === 'string' ? PROXY_URL : '/proxy/';
+            const proxyPath = proxyPrefix + encodeURIComponent(targetUrl);
+            const authorizedPath = window.ProxyAuth?.addAuthToProxyUrl
+                ? await window.ProxyAuth.addAuthToProxyUrl(proxyPath)
+                : proxyPath;
+            const proxyUrl = new URL(authorizedPath, window.location?.origin || 'https://libretv.local');
+            proxyUrl.searchParams.set('probe', '1');
+            requestUrl = proxyUrl.pathname + proxyUrl.search;
+            options.headers = { Range: `bytes=0-${SAMPLE_BYTES - 1}` };
+        }
         const startedAt = performance.now();
-        const response = await fetch(requestUrl.pathname + requestUrl.search, {
-            headers: { Range: `bytes=0-${SAMPLE_BYTES - 1}` },
-            cache: 'no-store',
-            signal
-        });
+        const response = await fetch(requestUrl, options);
         if (!response.ok || !response.body) {
+            await response.body?.cancel().catch(() => {});
             throw new Error(`媒体请求失败 (${response.status})`);
         }
 
@@ -43,7 +45,18 @@
         } finally {
             await reader.cancel().catch(() => {});
         }
-        return { bytes, chunks, contentType, elapsedMs: Math.max(1, performance.now() - startedAt) };
+        return { bytes, chunks, contentType, elapsedMs: Math.max(1, performance.now() - startedAt), transport: throughProxy ? 'proxy' : 'direct' };
+    }
+
+    async function fetchSample(targetUrl, signal) {
+        try {
+            // HLS playback requests media directly from the viewer's browser.
+            // A proxy-only measurement can fail even when that path plays fine.
+            return await requestSample(targetUrl, signal, false);
+        } catch (error) {
+            if (signal.aborted) throw error;
+            return requestSample(targetUrl, signal, true);
+        }
     }
 
     function playlistText(sample) {
@@ -96,7 +109,8 @@
                     return {
                         bytes: sample.bytes,
                         elapsedMs: Math.round(sample.elapsedMs),
-                        kbps: Math.round(sample.bytes * 1000 / (sample.elapsedMs * 1024))
+                        kbps: Math.round(sample.bytes * 1000 / (sample.elapsedMs * 1024)),
+                        transport: sample.transport
                     };
                 }
                 url = new URL(nextPlaylistUrl(playlistText(sample), url));

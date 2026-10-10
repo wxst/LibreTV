@@ -2,6 +2,13 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.21 - 2026-10-10
+
+### Fixed
+
+- Source speed checks now sample the same direct media path used for playback, with the authenticated proxy as a clearly labeled fallback.
+- When neither path can be measured, the source stays selectable and shows an inconclusive speed status rather than claiming playback is unavailable.
+
 ## 1.2.20 - 2026-10-10
 
 ### Added

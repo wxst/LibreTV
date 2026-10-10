@@ -2601,9 +2601,9 @@ async function testVideoSourceSpeed(sourceKey, vodId, signal) {
             return { kbps: -1, error: '链接无效' };
         }
         const sample = await window.SourceSpeed.probeEpisodeUrl(firstEpisodeUrl, { signal });
-        return { kbps: sample.kbps, episodes: data.episodes.length, error: null };
+        return { kbps: sample.kbps, transport: sample.transport, episodes: data.episodes.length, error: null };
     } catch (error) {
-        return { kbps: -1, error: error.name === 'AbortError' || error.message === '测速超时' ? '超时' : '不可用' };
+        return { kbps: -1, error: error.name === 'AbortError' || error.message === '测速超时' ? '测速超时，可试播' : '未能测速，可试播' };
     }
 }
 
@@ -2613,12 +2613,12 @@ function formatSpeedDisplay(speedResult) {
         return '<span class="speed-indicator pending">测速中…</span>';
     }
     if (speedResult.kbps === -1) {
-        return `<span class="speed-indicator error">❌ ${speedResult.error}</span>`;
+        return `<span class="speed-indicator pending">${speedResult.error}</span>`;
     }
     const rate = speedResult.kbps >= 1024
         ? `${(speedResult.kbps / 1024).toFixed(1)} MB/s`
         : `${speedResult.kbps} KB/s`;
-    return `<span class="speed-indicator good">约 ${rate}</span>`;
+    return `<span class="speed-indicator good">${speedResult.transport === 'proxy' ? '代理约' : '约'} ${rate}</span>`;
 }
 
 async function showSwitchResourceModal() {
