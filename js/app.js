@@ -1014,15 +1014,24 @@ function movieSourceName(sourceCode) {
 }
 
 function renderMovieSourcePanel(session) {
+    let bestIndex = -1;
+    let bestScore = 0;
+    session.entries.forEach((entry, index) => {
+        const score = entry.status === 'ok' ? window.SourceSpeed.scoreResult(entry.speed) : -1;
+        if (score > bestScore) {
+            bestScore = score;
+            bestIndex = index;
+        }
+    });
     const options = session.entries.map((entry, index) => {
         let status = '测速中…';
         let statusClass = 'pending';
+        let title = '';
         if (entry.status === 'ok') {
-            const rate = entry.kbps >= 1024
-                ? `约 ${(entry.kbps / 1024).toFixed(1)} MB/s`
-                : `约 ${entry.kbps} KB/s`;
-            status = entry.transport === 'proxy' ? `代理${rate}` : rate;
-            statusClass = 'good';
+            const described = window.SourceSpeed.describeResult(entry.speed);
+            status = described.label;
+            title = described.title;
+            statusClass = { smooth: 'good', ok: 'medium', slow: 'poor' }[entry.speed.verdict] || 'good';
         } else if (entry.status === 'missing') {
             status = '无同名影片';
             statusClass = 'unavailable';
@@ -1030,15 +1039,16 @@ function renderMovieSourcePanel(session) {
             status = entry.error || '测速失败';
             statusClass = 'unmeasured';
         }
-        return `<button type="button" class="source-probe-option ${index === session.selectedIndex ? 'is-active' : ''}"
-                    onclick="selectMovieSource(${index})" ${entry.vodId ? '' : 'disabled'}>
-                    <span class="source-probe-name">${escapeHtmlAttr(entry.name)}</span>
+        const isBest = index === bestIndex;
+        return `<button type="button" class="source-probe-option ${index === session.selectedIndex ? 'is-active' : ''} ${isBest ? 'is-best' : ''}"
+                    onclick="selectMovieSource(${index})" ${entry.vodId ? '' : 'disabled'} ${title ? `title="${escapeHtmlAttr(title)}"` : ''}>
+                    <span class="source-probe-name">${escapeHtmlAttr(entry.name)}${isBest ? '<span class="source-probe-best">推荐</span>' : ''}</span>
                     <span class="source-probe-status ${statusClass}">${escapeHtmlAttr(status)}</span>
                 </button>`;
     }).join('');
     return `<section id="movieSourcePanel" class="source-probe-panel" aria-label="可选资源测速">
                 <div class="source-probe-heading">
-                    <strong>选择资源</strong><span>优先直连抽样，失败后代理抽样；速率仅供参考</span>
+                    <strong>选择资源</strong><span>逐个下载真实视频分片，按下载带宽与视频码率评估流畅度；悬停查看延迟与码率</span>
                 </div>
                 <div class="source-probe-options">${options}</div>
             </section>`;
@@ -1095,8 +1105,7 @@ function createMovieSourceSession(id, title, sourceCode) {
             vodName: key === sourceCode ? title : (match?.vod_name || title),
             status: vodId ? 'pending' : (fromSearchResults ? 'missing' : 'searching'),
             detailPromise: null,
-            kbps: 0,
-            transport: '',
+            speed: null,
             error: ''
         };
     });
@@ -1132,8 +1141,7 @@ async function checkMovieSource(session, entry) {
         const result = await window.SourceSpeed.probeEpisodeUrl(playableUrl, {
             signal: session.controller.signal
         });
-        entry.kbps = result.kbps;
-        entry.transport = result.transport;
+        entry.speed = result;
         entry.status = 'ok';
     } catch (error) {
         if (session.controller.signal.aborted) return;

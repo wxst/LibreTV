@@ -1,4 +1,4 @@
-const APP_VERSION = '202610101400';
+const APP_VERSION = '202610101530';
 const APP_SHELL_CACHE = `libretv-shell-${APP_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
@@ -81,6 +81,15 @@ async function networkFirst(request) {
   }
 }
 
+// Third-party libraries and images rarely change, so serve them from cache.
+// App scripts and styles go network-first: a cached copy from an older release
+// must never be combined with freshly fetched HTML.
+function isLongLivedAsset(request) {
+  const url = new URL(request.url);
+  return url.origin === self.location.origin &&
+    (url.pathname.startsWith('/libs/') || url.pathname.startsWith('/image/'));
+}
+
 async function cacheFirstWithRefresh(request) {
   const cache = await caches.open(APP_SHELL_CACHE);
   const cached = await cache.match(request);
@@ -122,7 +131,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  if (event.request.mode === 'navigate') {
+  // Third-party requests (posters, CDNs) are not part of the app shell.
+  if (new URL(event.request.url).origin !== self.location.origin) {
+    return;
+  }
+
+  if (event.request.mode === 'navigate' || !isLongLivedAsset(event.request)) {
     event.respondWith(networkFirst(event.request));
     return;
   }

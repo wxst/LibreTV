@@ -987,6 +987,10 @@ html body .source-probe-option.is-active {
     background: rgba(139, 92, 246, 0.14);
 }
 
+html body .source-probe-option.is-best:not(.is-active) {
+    border-color: rgba(52, 211, 153, 0.5);
+}
+
 /* 声明弹窗中的强调 */
 html body #disclaimerModal strong { color: #c4b5fd; }
 
