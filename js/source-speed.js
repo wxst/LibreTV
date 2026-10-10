@@ -82,7 +82,9 @@
             throw new Error('播放地址返回了错误页面');
         }
 
-        const maxBytes = playlist ? PLAYLIST_MAX_BYTES : SAMPLE_MAX_BYTES;
+        // A media-looking URL can still answer with an HLS playlist.
+        const isPlaylist = playlist || /mpegurl/i.test(contentType);
+        const maxBytes = isPlaylist ? PLAYLIST_MAX_BYTES : SAMPLE_MAX_BYTES;
         const reader = response.body.getReader();
         const chunks = [];
         let bytes = 0;
@@ -100,10 +102,10 @@
                     firstChunkAt = now;
                     firstChunkBytes = chunk.length;
                 }
-                if (playlist) chunks.push(chunk);
+                if (isPlaylist) chunks.push(chunk);
                 bytes += chunk.length;
                 lastChunkAt = now;
-                if (!playlist && now - firstChunkAt >= SAMPLE_BUDGET_MS) break;
+                if (!isPlaylist && now - firstChunkAt >= SAMPLE_BUDGET_MS) break;
             }
         } finally {
             await reader.cancel().catch(() => {});
@@ -120,6 +122,7 @@
             firstChunkBytes,
             lastChunkAt,
             headersAt,
+            isPlaylist,
             transport: throughProxy ? 'proxy' : 'direct'
         };
     }
@@ -225,10 +228,10 @@
         return { verdict: 'slow', headroom: 0 };
     }
 
-    async function samplePlaylistChain(episodeUrl, signal) {
+    async function samplePlaylistChain(episodeUrl, signal, forcePlaylist = false) {
         let url = new URL(episodeUrl);
         if (!['http:', 'https:'].includes(url.protocol)) throw new Error('播放链接无效');
-        if (!/\.m3u8$/i.test(url.pathname)) return { segmentUrl: url.toString(), bandwidth: 0, duration: 0, segmentBytes: 0 };
+        if (!forcePlaylist && !/\.m3u8$/i.test(url.pathname)) return { segmentUrl: url.toString(), bandwidth: 0, duration: 0, segmentBytes: 0 };
         let bandwidth = 0;
         for (let depth = 0; depth < 4; depth++) {
             const sample = await fetchWithFallback(url.toString(), signal, true);
@@ -266,7 +269,13 @@
             if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
             const sampleGuard = linkSignals(signal, SAMPLE_TIMEOUT_MS);
             try {
-                const sample = await fetchWithFallback(target.segmentUrl, sampleGuard.signal, false);
+                let sample = await fetchWithFallback(target.segmentUrl, sampleGuard.signal, false);
+                if (sample.isPlaylist) {
+                    // The URL looked like media but served a playlist: follow it to a real segment.
+                    target = await samplePlaylistChain(target.segmentUrl, sampleGuard.signal, true);
+                    sample = await fetchWithFallback(target.segmentUrl, sampleGuard.signal, false);
+                    if (sample.isPlaylist) throw new Error('播放列表嵌套过深');
+                }
                 if (sample.bytes < 1024) throw new Error('媒体样本过小');
                 const kbps = Math.max(1, Math.round(throughputBytesPerSecond(sample) / 1024));
                 let bitrateKbps = target.bandwidth > 0 ? Math.round(target.bandwidth / 1000) : 0;

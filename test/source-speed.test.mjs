@@ -107,6 +107,23 @@ test('source speed uses the byte-range length, not the shared file size, for byt
   assert.equal(result.bitrateKbps, 4000);
 });
 
+test('source speed follows a media-looking URL that serves an HLS playlist', async () => {
+  const requests = [];
+  const SourceSpeed = await loadSourceSpeed(async (url, options) => {
+    const request = parseRequest(url, options);
+    requests.push(request.target);
+    if (request.target.endsWith('/play.mp4') || request.target.endsWith('.m3u8')) {
+      // Larger than 1 KiB so it would pass as a bogus media sample if treated as one.
+      return new Response(longMediaPlaylist(100), { headers: { 'Content-Type': 'application/vnd.apple.mpegurl' } });
+    }
+    return new Response(new Uint8Array(200 * 1024), { headers: { 'Content-Type': 'video/mp2t' } });
+  });
+
+  const result = await SourceSpeed.probeEpisodeUrl('https://media.example/play.mp4');
+  assert.equal(result.bytes, 200 * 1024);
+  assert.equal(requests.at(-1), 'https://media.example/seg-00002-a-fairly-long-segment-name.ts');
+});
+
 test('source speed falls back to the authenticated proxy when direct media cannot be read', async () => {
   const requests = [];
   const SourceSpeed = await loadSourceSpeed(async (url, options) => {
