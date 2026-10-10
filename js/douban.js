@@ -122,8 +122,35 @@ function refreshDoubanAdultTagState() {
     }
 }
 
+let doubanInitialized = false;
+// 最近一次推荐请求的序号：只有最新请求的结果会被渲染
+let doubanRenderSeq = 0;
+// 进行中的豆瓣列表请求（按请求地址共享），重复调用不会再次请求
+const doubanInflightRequests = new Map();
+
+function fetchDoubanDataShared(url) {
+    if (!doubanInflightRequests.has(url)) {
+        const request = fetchDoubanData(url).finally(() => doubanInflightRequests.delete(url));
+        doubanInflightRequests.set(url, request);
+    }
+    return doubanInflightRequests.get(url);
+}
+
 // 初始化豆瓣功能
 function initDouban() {
+    // 密码验证通过后会再次调用：只刷新显示状态，避免重复绑定事件和重复加载封面
+    if (doubanInitialized) {
+        updateDoubanVisibility();
+        return;
+    }
+    doubanInitialized = true;
+
+    // 先准备标签和切换状态，再按显示状态加载一次推荐内容
+    loadUserTags();
+    renderDoubanMovieTvSwitch();
+    renderDoubanTags();
+    setupDoubanRefreshBtn();
+
     // 设置豆瓣开关的初始状态
     const doubanToggle = document.getElementById('doubanToggle');
     if (doubanToggle) {
@@ -156,28 +183,11 @@ function initDouban() {
             updateDoubanVisibility();
         });
         
-        // 初始更新显示状态
+        // 初始更新显示状态（启用且列表为空时会加载一次推荐内容）
         updateDoubanVisibility();
 
         // 滚动到页面顶部
         window.scrollTo(0, 0);
-    }
-
-    // 加载用户标签
-    loadUserTags();
-
-    // 渲染电影/电视剧切换
-    renderDoubanMovieTvSwitch();
-    
-    // 渲染豆瓣标签
-    renderDoubanTags();
-    
-    // 换一批按钮事件监听
-    setupDoubanRefreshBtn();
-    
-    // 初始加载热门内容
-    if (localStorage.getItem('doubanEnabled') === 'true') {
-        renderRecommend(doubanCurrentTag, doubanPageSize, doubanPageStart);
     }
 }
 
@@ -483,6 +493,9 @@ function renderRecommend(tag, pageLimit, pageStart) {
     const container = document.getElementById("douban-results");
     if (!container) return;
 
+    const requestId = ++doubanRenderSeq;
+    const isCurrentRequest = () => requestId === doubanRenderSeq;
+
     const loadingOverlayHTML = `
         <div class="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-10">
             <div class="flex items-center justify-center">
@@ -493,20 +506,22 @@ function renderRecommend(tag, pageLimit, pageStart) {
     `;
 
     container.classList.add("relative");
-    container.insertAdjacentHTML('beforeend', loadingOverlayHTML);
+    container.querySelector('.douban-loading-overlay')?.remove();
+    container.insertAdjacentHTML('beforeend', loadingOverlayHTML.replace('class="absolute', 'class="douban-loading-overlay absolute'));
 
     if (tag === ADULT_RECOMMEND_TAG) {
-        return renderAdultRecommend(pageLimit, pageStart);
+        return renderAdultRecommend(pageLimit, pageStart, isCurrentRequest);
     }
-    
+
     const target = `https://movie.douban.com/j/search_subjects?type=${doubanMovieTvCurrentSwitch}&tag=${tag}&sort=recommend&page_limit=${pageLimit}&page_start=${pageStart}`;
-    
-    // 使用通用请求函数
-    return fetchDoubanData(target)
+
+    // 相同的请求共享同一份数据，但只有最新一次调用会渲染，避免同一批封面被渲染两次
+    return fetchDoubanDataShared(target)
         .then(data => {
-            renderDoubanCards(data, container);
+            if (isCurrentRequest()) renderDoubanCards(data, container);
         })
         .catch(error => {
+            if (!isCurrentRequest()) return;
             console.error("获取豆瓣数据失败：", error);
             container.innerHTML = `
                 <div class="col-span-full text-center py-8">
@@ -530,7 +545,7 @@ function getAdultRecommendPage(pageLimit, pageStart) {
     return Math.max(1, Math.floor(start / limit) + 1);
 }
 
-async function renderAdultRecommend(pageLimit, pageStart) {
+async function renderAdultRecommend(pageLimit, pageStart, isCurrentRequest = () => true) {
     const container = document.getElementById("douban-results");
     if (!container) return;
 
@@ -539,7 +554,7 @@ async function renderAdultRecommend(pageLimit, pageStart) {
         : [];
 
     if (!isAdultRecommendTagAvailable() || adultApiIds.length === 0) {
-        renderDoubanCards({ subjects: [] }, container);
+        if (isCurrentRequest()) renderDoubanCards({ subjects: [] }, container);
         return;
     }
 
@@ -555,8 +570,9 @@ async function renderAdultRecommend(pageLimit, pageStart) {
             .filter(item => typeof matchesYellowContent !== 'function' || matchesYellowContent(item))
             .slice(0, pageLimit);
 
-        renderAdultCards(adultResults, container);
+        if (isCurrentRequest()) renderAdultCards(adultResults, container);
     } catch (error) {
+        if (!isCurrentRequest()) return;
         console.error("获取成人视频数据失败：", error);
         container.innerHTML = `
             <div class="col-span-full text-center py-8">
