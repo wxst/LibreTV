@@ -87,6 +87,26 @@ test('source speed estimates bitrate from segment size and duration without a ma
   assert.equal(result.bitrateKbps, 4000);
 });
 
+test('source speed uses the byte-range length, not the shared file size, for byte-range playlists', async () => {
+  const playlist = '#EXTM3U\n#EXT-X-VERSION:4\n' +
+    [0, 1, 2, 3].map(i => `#EXTINF:6.0,\n#EXT-X-BYTERANGE:3000000@${i * 3000000}\nmovie.ts\n`).join('') +
+    '#EXT-X-ENDLIST\n';
+  const SourceSpeed = await loadSourceSpeed(async (url, options) => {
+    const request = parseRequest(url, options);
+    if (request.target.endsWith('.m3u8')) {
+      return new Response(playlist, { headers: { 'Content-Type': 'application/vnd.apple.mpegurl' } });
+    }
+    // The whole movie file is far larger than one segment.
+    return new Response(new Uint8Array(300 * 1024), {
+      headers: { 'Content-Type': 'video/mp2t', 'Content-Length': String(2 * 1000 * 1000 * 1000) }
+    });
+  });
+
+  const result = await SourceSpeed.probeEpisodeUrl('https://media.example/index.m3u8');
+  // 3 MB over 6 seconds is 4 Mbps; the 2 GB file size must not be used.
+  assert.equal(result.bitrateKbps, 4000);
+});
+
 test('source speed falls back to the authenticated proxy when direct media cannot be read', async () => {
   const requests = [];
   const SourceSpeed = await loadSourceSpeed(async (url, options) => {

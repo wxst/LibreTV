@@ -161,6 +161,7 @@
         let bestBandwidth = -1;
         const segments = [];
         let pendingDuration = 0;
+        let pendingByteLength = 0;
         for (let index = 0; index < lines.length; index++) {
             const line = lines[index];
             if (line.startsWith('#EXT-X-STREAM-INF')) {
@@ -172,9 +173,13 @@
                 }
             } else if (line.startsWith('#EXTINF:')) {
                 pendingDuration = Number.parseFloat(line.slice(8)) || 0;
+            } else if (line.startsWith('#EXT-X-BYTERANGE:')) {
+                // Byte-range segments share one file, so its size says nothing about a segment.
+                pendingByteLength = Number.parseInt(line.slice(17), 10) || 0;
             } else if (line && !line.startsWith('#')) {
-                segments.push({ uri: line, duration: pendingDuration });
+                segments.push({ uri: line, duration: pendingDuration, byteLength: pendingByteLength });
                 pendingDuration = 0;
+                pendingByteLength = 0;
             }
         }
 
@@ -190,7 +195,9 @@
         return {
             kind: 'media',
             url: resolvePlaylistUrl(segment.uri, baseUrl),
-            duration: segment.duration
+            duration: segment.duration,
+            byteLength: segment.byteLength,
+            usesByteRanges: segments.some(item => item.byteLength > 0)
         };
     }
 
@@ -221,7 +228,7 @@
     async function samplePlaylistChain(episodeUrl, signal) {
         let url = new URL(episodeUrl);
         if (!['http:', 'https:'].includes(url.protocol)) throw new Error('播放链接无效');
-        if (!/\.m3u8$/i.test(url.pathname)) return { segmentUrl: url.toString(), bandwidth: 0, duration: 0 };
+        if (!/\.m3u8$/i.test(url.pathname)) return { segmentUrl: url.toString(), bandwidth: 0, duration: 0, segmentBytes: 0 };
         let bandwidth = 0;
         for (let depth = 0; depth < 4; depth++) {
             const sample = await fetchWithFallback(url.toString(), signal, true);
@@ -229,7 +236,13 @@
             if (!text.includes('#EXTM3U')) throw new Error('播放列表格式无效');
             const parsed = parsePlaylist(text, url);
             if (parsed.kind === 'media') {
-                return { segmentUrl: parsed.url, bandwidth, duration: parsed.duration };
+                return {
+                    segmentUrl: parsed.url,
+                    bandwidth,
+                    duration: parsed.duration,
+                    // -1: the file size must not be used as the segment size.
+                    segmentBytes: parsed.byteLength || (parsed.usesByteRanges ? -1 : 0)
+                };
             }
             bandwidth = parsed.bandwidth || bandwidth;
             url = new URL(parsed.url);
@@ -257,8 +270,9 @@
                 if (sample.bytes < 1024) throw new Error('媒体样本过小');
                 const kbps = Math.max(1, Math.round(throughputBytesPerSecond(sample) / 1024));
                 let bitrateKbps = target.bandwidth > 0 ? Math.round(target.bandwidth / 1000) : 0;
-                if (!bitrateKbps && target.duration > 0 && sample.totalSize > 0) {
-                    bitrateKbps = Math.round(sample.totalSize * 8 / target.duration / 1000);
+                const segmentBytes = target.segmentBytes === 0 ? sample.totalSize : target.segmentBytes;
+                if (!bitrateKbps && target.duration > 0 && segmentBytes > 0) {
+                    bitrateKbps = Math.round(segmentBytes * 8 / target.duration / 1000);
                 }
                 const { verdict, headroom } = smoothnessVerdict(kbps, bitrateKbps);
                 return {
