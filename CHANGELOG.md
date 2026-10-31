@@ -2,6 +2,16 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.56 - 2026-10-31
+
+### Fixed
+
+- Android app 1.0.2:
+  - On Android 15, apps are drawn edge to edge, so the site's top bar sat under the status-bar icons, and the bottom could hide behind the navigation bar or keyboard. The page now leaves room for the status bar, navigation bar, display cutout and keyboard. Fullscreen video still uses the whole screen.
+  - The TV search (SSDP `M-SEARCH`) is sent on every LAN network interface instead of only the system default. Some phones route multicast to mobile data or a VPN, so TVs on the same Wi-Fi never heard the search. Mobile-data and VPN interfaces are skipped.
+  - Same signing key, so it installs over 1.0.1.
+- When no device is found, the cast panel now says that Apple TV and Mac speak only AirPlay, not DLNA. The README FAQ says the same and suggests an open-source DLNA receiver for testing on a Mac.
+
 ## 1.2.55 - 2026-10-31
 
 ### Changed

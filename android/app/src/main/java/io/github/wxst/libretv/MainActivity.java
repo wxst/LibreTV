@@ -73,6 +73,12 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.parseColor("#07070d"));
         setContentView(root);
+        // 安卓 15 起应用默认铺满全屏（edge-to-edge），状态栏、导航栏、刘海和键盘会盖住网页：
+        // 用这些区域的大小给页面留出边距；全屏看视频时不留，让画面占满屏幕。
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            applySystemBarPadding(view, insets);
+            return insets;
+        });
         siteUrl = prefs().getString(KEY_SITE, "");
         if (siteUrl.isEmpty()) showSetup(null);
         else openSite();
@@ -243,6 +249,7 @@ public class MainActivity extends Activity {
             fullscreenCallback = callback;
             root.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             setSystemBarsHidden(true);
+            root.requestApplyInsets();
             // 全屏看视频时横屏（跟随重力在两个横屏方向之间切换）
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         }
@@ -267,6 +274,22 @@ public class MainActivity extends Activity {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    private void applySystemBarPadding(View view, WindowInsets insets) {
+        if (fullscreenView != null) {
+            view.setPadding(0, 0, 0, 0);
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars()
+                    | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+        } else {
+            view.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
+                    insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
+        }
+    }
+
     private void exitFullscreen() {
         if (fullscreenView == null) return;
         root.removeView(fullscreenView);
@@ -274,6 +297,7 @@ public class MainActivity extends Activity {
         if (fullscreenCallback != null) fullscreenCallback.onCustomViewHidden();
         fullscreenCallback = null;
         setSystemBarsHidden(false);
+        root.requestApplyInsets();
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
 

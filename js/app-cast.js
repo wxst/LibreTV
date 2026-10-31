@@ -26,7 +26,7 @@
         let status = '';
         if (state.searching) status = '<span class="cast-spinner" aria-hidden="true"></span>正在查找同一 Wi-Fi 下的电视…';
         else if (state.error) status = escapeText(state.error);
-        else if (!state.devices.length) status = '没有找到可投屏的电视。请确认电视已开机、和手机连着同一个 Wi-Fi，并打开了电视的投屏功能，然后点「重新查找」。';
+        else if (!state.devices.length) status = '没有找到支持 DLNA 的电视或盒子。请确认设备已开机、和手机连着同一个 Wi-Fi、打开了投屏功能，然后点「重新查找」。<br>Apple TV 和 Mac 只支持苹果的 AirPlay，不支持 DLNA，这里搜不到。';
         else status = '选择要投屏的电视：';
         panel.querySelector('.cast-panel-status').innerHTML = status;
         panel.querySelector('.cast-panel-list').innerHTML = list;

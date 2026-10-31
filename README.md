@@ -276,6 +276,8 @@ iPhone 上点全屏会进入系统播放器，iOS 不允许网页锁定屏幕方
 <details>
 <summary><b>安卓 App 找不到电视 / 投屏失败</b></summary>
 
+App 投屏用的是 DLNA：国产智能电视、盒子和乐播投屏基本都支持；Apple TV 和 Mac 只支持苹果的 AirPlay，安卓 App 搜不到它们（iPhone 能看到，是因为 iPhone 用的是 AirPlay）。想在 Mac 上测试，可以装一个开源的 DLNA 接收端，比如 [Macast](https://github.com/xfangfang/Macast)。
+
 确认手机和电视连的是同一个 Wi-Fi（不要一个连 5G、一个连访客网络），电视开着投屏功能，然后在投屏面板里点「重新查找」。部分路由器默认拦截组播（「AP 隔离」「组播转单播」之类的选项），需要关闭。投屏后电视没有画面，多半是电视访问不到该资源站，换个源再投。
 </details>
 
