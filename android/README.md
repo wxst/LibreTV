@@ -8,6 +8,17 @@
 
 网页通过 `window.LibreTVApp` 调用 App（`discover`、`control`、`keepScreenOn`、`siteUrl`、`changeSite`、`version`），App 把结果回调到网页的 `window.LibreTVCast`（见 `js/app-cast.js`）。网站地址在第一次打开时输入，保存在 App 本地，不写进代码。
 
+## 权限
+
+只申请两个权限，都是安装时自动授予的普通权限，不会弹窗：
+
+| 权限 | 安装界面显示 | 用途 |
+|---|---|---|
+| `INTERNET` | 完全的网络访问权限 | 打开网站、播放视频、给电视发投屏指令 |
+| `CHANGE_WIFI_MULTICAST_STATE` | 允许接收 WLAN 多播 | 在 Wi-Fi 里用组播查找电视（DLNA 发现设备靠组播） |
+
+不读取通讯录、存储、定位、电话或设备信息。
+
 ## 编译
 
 需要 JDK 17+ 和 Android SDK（platform 35、build-tools 35）。

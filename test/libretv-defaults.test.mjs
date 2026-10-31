@@ -1289,15 +1289,16 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.54');
-  assert.equal(lockJson.version, '1.2.54');
-  assert.equal(lockJson.packages[''].version, '1.2.54');
-  assert.match(config, /version:\s*'1\.2\.54'/);
-  assert.match(serviceWorker, /const APP_VERSION = '202610310741'/);
+  assert.equal(packageJson.version, '1.2.55');
+  assert.equal(lockJson.version, '1.2.55');
+  assert.equal(lockJson.packages[''].version, '1.2.55');
+  assert.match(config, /version:\s*'1\.2\.55'/);
+  assert.match(serviceWorker, /const APP_VERSION = '202610310810'/);
   assert.match(serviceWorker, /'\/js\/player-recommendations\.js'/);
   assert.match(serviceWorker, /'\/js\/mobile-fullscreen\.js'/);
   assert.match(serviceWorker, /'\/css\/theme\.css'/);
   assert.match(serviceWorker, /'\/js\/source-speed\.js'/);
+  assert.match(changelog, /## 1\.2\.55 - 2026-10-31[\s\S]*?two permissions instead of four/);
   assert.match(changelog, /## 1\.2\.54 - 2026-10-31[\s\S]*?Casting to a TV/);
   assert.match(changelog, /## 1\.2\.53 - 2026-10-31[\s\S]*?visitor's time zone/);
   assert.match(changelog, /## 1\.2\.52 - 2026-10-31[\s\S]*?share menu/);
