@@ -368,24 +368,50 @@ function restorePlaybackPosition() {
     if (Number.isFinite(duration) && duration > 0) playbackRestoreApplied = true;
 }
 
+// 浏览器（尤其 iPhone）只允许在用户点过当前页面后播放有声视频，从首页点进播放页不算，所以先静音播放。
+// 画面上放一个「点按开启声音」按钮；点页面任何地方（或按任意键）都会恢复声音。
 function showAutoplayMutedNotice() {
     if (autoplayMutedNoticeShown) return;
     autoplayMutedNoticeShown = true;
 
-    if (typeof showToast === 'function') {
-        showToast('已静音自动播放，点击播放器恢复声音', 'success');
+    const host = art?.template?.$player;
+    let button = null;
+    if (host) {
+        button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'autoplay-unmute';
+        button.setAttribute('aria-label', '已静音自动播放，点按开启声音');
+        button.innerHTML = '<span aria-hidden="true">🔇</span> 点按开启声音';
+        host.appendChild(button);
     } else if (art && art.notice) {
         art.notice.show = '已静音自动播放，点击播放器恢复声音';
     }
 
-    const restoreSoundOnClick = () => {
+    // 只用点按（click）和按键：滑动页面结束时的 touchend 不算用户操作，此时取消静音 iPhone 会直接把视频暂停
+    const events = ['click', 'keydown'];
+    const cleanup = () => {
+        events.forEach(name => document.removeEventListener(name, restoreSound, true));
+        art?.video?.removeEventListener('volumechange', onVolumeChange);
+        button?.remove();
+    };
+    function restoreSound(event) {
+        if (event.type === 'keydown' && event.key === 'Escape') return;
         if (art && art.video) {
             art.muted = false;
             art.video.muted = false;
         }
-        document.removeEventListener('click', restoreSoundOnClick, true);
-    };
-    document.addEventListener('click', restoreSoundOnClick, true);
+        // 点的是这个按钮：只开声音，不要再触发画面上的暂停 / 显示控制栏
+        if (button && event.target?.closest?.('.autoplay-unmute')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }
+        cleanup();
+    }
+    function onVolumeChange() {
+        if (art?.video && !art.video.muted) cleanup();
+    }
+    events.forEach(name => document.addEventListener(name, restoreSound, true));
+    art?.video?.addEventListener('volumechange', onVolumeChange);
 }
 
 function tryStartPlayback() {

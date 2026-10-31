@@ -1757,3 +1757,34 @@ html body .clash-rules-text {
 
 /* 豆瓣卡片：评分人数不足的新片 */
 .douban-unrated-badge { position: absolute; bottom: .5rem; left: .5rem; padding: .2rem .5rem; border-radius: 999px; font-size: .7rem; color: #a5adc4; background: rgba(0, 0, 0, .6); }
+
+/* iPhone / iPad：首页底部的「添加到主屏幕」提示 */
+.ios-install-hint {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--lt-line-strong);
+    border-radius: 14px;
+    background: var(--lt-surface-solid);
+    color: var(--lt-text);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+}
+.ios-install-hint-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.ios-install-hint-text small {
+    color: var(--lt-muted);
+    font-size: 12px;
+}
+.ios-install-hint-close { flex-shrink: 0; }

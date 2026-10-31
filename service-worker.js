@@ -1,4 +1,4 @@
-const APP_VERSION = '202610311730';
+const APP_VERSION = '202610311830';
 const APP_SHELL_CACHE = `libretv-shell-${APP_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
@@ -57,6 +57,7 @@ const APP_SHELL_ASSETS = [
   '/js/index-page.js',
   '/js/version-check.js',
   '/js/pwa-register.js',
+  '/js/ios-install.js',
   '/libs/sha256.min.js',
   '/libs/hls.min.js',
   '/libs/artplayer.min.js',
