@@ -1109,6 +1109,7 @@ test('player autoplay fallback retries muted playback and source switching resum
   assert.match(player, /playbackPromise\.catch/);
   assert.match(player, /art\.muted\s*=\s*true/);
   assert.match(player, /已静音自动播放/);
+  assert.match(player, /点按开启声音/);
   assert.match(player, /function getCurrentPlaybackPosition/);
   assert.match(player, /function restorePlaybackPosition/);
   assert.match(player, /function clampPlaybackPosition/);
@@ -1288,15 +1289,16 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.51');
-  assert.equal(lockJson.version, '1.2.51');
-  assert.equal(lockJson.packages[''].version, '1.2.51');
-  assert.match(config, /version:\s*'1\.2\.51'/);
-  assert.match(serviceWorker, /const APP_VERSION = '202610311730'/);
+  assert.equal(packageJson.version, '1.2.52');
+  assert.equal(lockJson.version, '1.2.52');
+  assert.equal(lockJson.packages[''].version, '1.2.52');
+  assert.match(config, /version:\s*'1\.2\.52'/);
+  assert.match(serviceWorker, /const APP_VERSION = '202610311830'/);
   assert.match(serviceWorker, /'\/js\/player-recommendations\.js'/);
   assert.match(serviceWorker, /'\/js\/mobile-fullscreen\.js'/);
   assert.match(serviceWorker, /'\/css\/theme\.css'/);
   assert.match(serviceWorker, /'\/js\/source-speed\.js'/);
+  assert.match(changelog, /## 1\.2\.52 - 2026-10-31[\s\S]*?share menu/);
   assert.match(changelog, /## 1\.2\.51 - 2026-10-31[\s\S]*?webkitEnterFullscreen/);
   assert.match(changelog, /## 1\.2\.50 - 2026-10-31[\s\S]*?Dependabot/);
   assert.match(changelog, /## 1\.2\.49 - 2026-10-31[\s\S]*?adult-content filter/);

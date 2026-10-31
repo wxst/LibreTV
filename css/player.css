@@ -1272,3 +1272,24 @@ input:checked + .slider:before {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
 }
+
+/* 静音自动播放时画面左上角的「点按开启声音」按钮 */
+.autoplay-unmute {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 65;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    background: rgba(10, 10, 20, 0.78);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}

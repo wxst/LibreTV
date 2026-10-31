@@ -224,3 +224,15 @@ test('saved progress is restored once per load so later seeks are not pulled bac
   assert.match(mobile, /event\.stopPropagation\(\);\n\s*const touch = event\.touches\[0\];/);
   assert.match(player, /document\.addEventListener\('keyup', handleKeyboardShortcutRelease\)/);
 });
+
+test('iPhone install hint explains the share menu per browser', async () => {
+  const source = await readFile(new URL('../js/ios-install.js', import.meta.url), 'utf8');
+  const sandbox = { window: {}, navigator: { userAgent: '', platform: 'iPhone', maxTouchPoints: 5 }, document: { readyState: 'complete', getElementById: () => null } };
+  vm.runInNewContext(source, sandbox);
+  const { steps, isAppleTouchDevice } = sandbox.window.IosInstallHint;
+  assert.match(steps('Mozilla/5.0 (iPhone) Version/17.5 Mobile Safari/604.1'), /分享.*添加到主屏幕/);
+  assert.match(steps('Mozilla/5.0 (iPhone) CriOS/130.0 Mobile'), /地址栏旁的「分享」/);
+  assert.match(steps('Mozilla/5.0 (iPhone) MicroMessenger/8.0'), /在 Safari 中打开/);
+  assert.equal(isAppleTouchDevice('Mozilla/5.0 (Linux; Android 14)', 'Linux', 5), false);
+  assert.equal(isAppleTouchDevice('Mozilla/5.0 (Macintosh)', 'MacIntel', 5), true, 'iPad reports itself as a Mac');
+});

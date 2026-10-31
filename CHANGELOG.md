@@ -2,6 +2,20 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.52 - 2026-10-31
+
+### Added
+
+- iPhone / iPad: how to install the site as an app. iOS has no install button or prompt; web apps are added from the browser's share menu.
+  - The home page shows a one-time hint at the bottom ("知道了" hides it for good). The settings panel keeps the same instructions at the top.
+  - The wording follows the browser: Safari's share button, Chrome / Edge / Firefox's share button next to the address bar, and in WeChat / QQ / Weibo / DingTalk's built-in browsers, a note to open the page in Safari first.
+  - Nothing is shown on other devices or when the site was already opened from the home screen.
+
+### Changed
+
+- Muted autoplay: browsers, iPhone most of all, only allow video with sound after a tap on the current page, and the tap on the home page does not carry over to the player page, so playback starts muted. A 「🔇 点按开启声音」 button now sits on the picture instead of a toast that disappeared. A tap on the button, a tap anywhere on the page or any key restores the sound; the button tap does not also pause the video. Scroll gestures are deliberately not used, since iPhone pauses a video unmuted without a tap.
+- README FAQ: installing on iPhone, why iPhone fullscreen cannot force landscape, and why videos may start muted.
+
 ## 1.2.51 - 2026-10-31
 
 ### Fixed
