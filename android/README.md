@@ -30,7 +30,7 @@ keyAlias=libretv
 keyPassword=******
 ```
 
-对应的环境变量：`LIBRETV_KEYSTORE`、`LIBRETV_KEYSTORE_PASSWORD`、`LIBRETV_KEY_ALIAS`、`LIBRETV_KEY_PASSWORD`。没有配置签名时只能编译调试包（`assembleDebug`）。
+对应的环境变量：`LIBRETV_KEYSTORE`、`LIBRETV_KEYSTORE_PASSWORD`、`LIBRETV_KEY_ALIAS`、`LIBRETV_KEY_PASSWORD`。云端编译环境里不方便放文件时，可以把密钥文件转成 Base64 放进 `LIBRETV_KEYSTORE_BASE64`（`base64 -w0 libretv-release.jks`），再配上 `LIBRETV_KEYSTORE_PASSWORD`，别名默认 `libretv`、密钥密码默认与密钥库密码相同。没有配置签名时只能编译调试包（`assembleDebug`）。
 
 当前发布的 APK 证书 SHA-256：`17:AF:9C:A2:70:B6:2A:90:8E:DF:89:68:0C:D0:66:87:9D:70:DC:76:79:2C:0C:7C:26:5E:F3:23:26:1E:A7:D9`
 
