@@ -442,6 +442,8 @@ function tryStartPlayback() {
 }
 
 function isMobilePlaybackDevice() {
+    // 电视版：遥控器操作，按电脑版的界面和逻辑来（没有触屏手势层，弹幕用大字号）
+    if (window.TVMode?.active) return false;
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
@@ -3396,8 +3398,8 @@ function renderResourceInfoBar() {
       </div>
       <div class="quick-player-actions">
         <button type="button" class="resource-switch-btn" id="switchResourceBtn" onclick="showSwitchResourceModal()">换源</button>
-        ${window.LibreTVCast?.isApp ? '<button type="button" id="castButton" onclick="openAppCast()">投屏</button>' : ''}
-        ${isMobilePlaybackDevice() || !window.PlayerDownload ? '' : '<button type="button" id="downloadVideoButton" aria-haspopup="menu" aria-expanded="false" onclick="toggleDownloadMenu(this)">下载</button>'}
+        ${window.LibreTVCast?.isApp && !window.TVMode?.active ? '<button type="button" id="castButton" onclick="openAppCast()">投屏</button>' : ''}
+        ${isMobilePlaybackDevice() || window.TVMode?.active || !window.PlayerDownload ? '' : '<button type="button" id="downloadVideoButton" aria-haspopup="menu" aria-expanded="false" onclick="toggleDownloadMenu(this)">下载</button>'}
         ${currentEpisodes.length > 1 ? '<button type="button" id="quickEpisodesButton" aria-expanded="false" onclick="toggleQuickEpisodes()">选集</button>' : ''}
         <button type="button" id="quickSettingsButton" aria-expanded="false" onclick="toggleQuickSettings()">更多</button>
       </div>

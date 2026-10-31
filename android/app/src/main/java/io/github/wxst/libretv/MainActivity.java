@@ -79,6 +79,11 @@ public class MainActivity extends Activity {
             applySystemBarPadding(view, insets);
             return insets;
         });
+        if (BuildConfig.IS_TV) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+            // 电视一直横屏、不息屏
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
         siteUrl = prefs().getString(KEY_SITE, "");
         if (siteUrl.isEmpty()) showSetup(null);
         else openSite();
@@ -190,7 +195,8 @@ public class MainActivity extends Activity {
         settings.setMediaPlaybackRequiresUserGesture(false);
         // 网站是 https，资源站的视频常是 http
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " LibreTVApp/" + appVersion());
+        // 网站据此识别 App；电视版再加 TV，网站会切换成遥控器操作的界面
+        settings.setUserAgentString(settings.getUserAgentString() + " LibreTVApp/" + appVersion() + (BuildConfig.IS_TV ? " TV" : ""));
         webView.addJavascriptInterface(new Bridge(), "LibreTVApp");
         webView.setWebViewClient(new SiteClient());
         webView.setWebChromeClient(new Chrome());
@@ -298,7 +304,7 @@ public class MainActivity extends Activity {
         fullscreenCallback = null;
         setSystemBarsHidden(false);
         root.requestApplyInsets();
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        setRequestedOrientation(BuildConfig.IS_TV ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
 
     @SuppressWarnings("deprecation")
@@ -337,8 +343,13 @@ public class MainActivity extends Activity {
                 exitFullscreen();
                 return true;
             }
-            if (webView != null && webView.canGoBack()) {
-                webView.goBack();
+            if (webView != null) {
+                // 先让网页处理（关闭选集、设置面板，退出网页全屏），网页没处理再后退或退出 App
+                webView.evaluateJavascript("(function(){try{return window.LibreTVBack&&window.LibreTVBack()===true}catch(e){return false}})()", handled -> {
+                    if ("true".equals(handled)) return;
+                    if (webView != null && webView.canGoBack()) webView.goBack();
+                    else finish();
+                });
                 return true;
             }
         }

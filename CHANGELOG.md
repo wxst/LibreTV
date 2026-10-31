@@ -2,6 +2,30 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.58 - 2026-10-31
+
+### Added
+
+- Android TV app (`download/LibreTV-TV.apk`, package `io.github.wxst.libretv.tv`): the `tv` Gradle flavor of the same shell.
+  - It appears on the TV home screen with a 320×180 banner, always runs landscape and keeps the screen on.
+  - It needs only the internet permission (no casting), and it can be installed next to the phone app.
+- TV mode on the site (`js/tv-mode.js`). It turns on in the TV app (its User-Agent ends in ` TV`), in known TV browsers (Android TV, Fire TV, BRAVIA, Mi TV/Box and others), or with `?tv=1`; `?tv=0` turns it off.
+  - On pages, the direction keys move focus to the nearest button or card in that direction, inside the open panel when there is one. Focus has a large glow that is visible from the sofa, and OK clicks the focused element.
+  - Playback fills the screen as soon as it starts:
+    - OK: play / pause.
+    - Left / right: ±10 s.
+    - Up: episodes (focus lands on the current one).
+    - Down / menu: playback settings.
+    - Media keys: play, pause, rewind, fast-forward, next and previous episode.
+  - The player uses the desktop layout (no touch layer, larger danmaku), and the cast and download buttons are hidden.
+- Back key (both apps): the page handles it first through `window.LibreTVBack()`. It closes the playback settings, episodes, cast panel, dialogs, settings or history, then exits web fullscreen. Only after that does the app go back or close.
+- Download card: the settings show both 下载手机版 and 下载电视版 on Android phones, Android TV and desktop (for sideloading by USB), and highlight the one that fits the current device. iPhone keeps its home-screen hint.
+- Both apps are now 1.1.0 (versionCode 4), with the same signing key.
+
+### Fixed
+
+- The 历史 / 设置 buttons in the top bar wrapped their labels into a vertical column at widths around 960 px (for example a TV browser or a narrow window).
+
 ## 1.2.57 - 2026-10-31
 
 ### Added
