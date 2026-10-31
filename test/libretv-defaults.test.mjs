@@ -1288,15 +1288,16 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.50');
-  assert.equal(lockJson.version, '1.2.50');
-  assert.equal(lockJson.packages[''].version, '1.2.50');
-  assert.match(config, /version:\s*'1\.2\.50'/);
-  assert.match(serviceWorker, /const APP_VERSION = '202610311630'/);
+  assert.equal(packageJson.version, '1.2.51');
+  assert.equal(lockJson.version, '1.2.51');
+  assert.equal(lockJson.packages[''].version, '1.2.51');
+  assert.match(config, /version:\s*'1\.2\.51'/);
+  assert.match(serviceWorker, /const APP_VERSION = '202610311730'/);
   assert.match(serviceWorker, /'\/js\/player-recommendations\.js'/);
   assert.match(serviceWorker, /'\/js\/mobile-fullscreen\.js'/);
   assert.match(serviceWorker, /'\/css\/theme\.css'/);
   assert.match(serviceWorker, /'\/js\/source-speed\.js'/);
+  assert.match(changelog, /## 1\.2\.51 - 2026-10-31[\s\S]*?webkitEnterFullscreen/);
   assert.match(changelog, /## 1\.2\.50 - 2026-10-31[\s\S]*?Dependabot/);
   assert.match(changelog, /## 1\.2\.49 - 2026-10-31[\s\S]*?adult-content filter/);
   assert.match(changelog, /## 1\.2\.48 - 2026-10-31[\s\S]*?on-screen comments/);
