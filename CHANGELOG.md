@@ -2,6 +2,15 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.51 - 2026-10-31
+
+### Fixed
+
+- iPhone: the fullscreen button only enlarged the player inside the page, with Safari's address bar and toolbars still showing. iPhone Safari cannot put a page element fullscreen (Android and iPad can), only the video itself, so the button now opens the system video player in real fullscreen (`webkitEnterFullscreen`).
+  - The system player does not show the site's comments (弹幕) or gesture layer. For those, player settings → 网页全屏 (only shown on such devices) still offers the in-page fullscreen.
+  - 画质增强 draws on a canvas over the video, which the system player does not show, so it pauses while in system fullscreen and comes back on exit.
+  - Android, iPad and desktop are unchanged.
+
 ## 1.2.50 - 2026-10-31
 
 ### Security

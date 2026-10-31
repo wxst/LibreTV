@@ -513,8 +513,57 @@ function unlockLandscapeOrientation() {
     }
 }
 
+// iPhone 的 Safari 不能把网页元素全屏，只能「网页全屏」（地址栏和工具栏还在）；视频本身可以进入
+// 系统全屏，这才是真正的全屏。系统播放器里看不到弹幕和手势层，所以设置里另留「网页全屏」可选。
+function usesNativeVideoFullscreen() {
+    return !document.fullscreenEnabled && !document.webkitFullscreenEnabled &&
+        typeof art?.video?.webkitEnterFullscreen === 'function';
+}
+
+function enterNativeVideoFullscreen() {
+    if (!usesNativeVideoFullscreen()) return false;
+    try {
+        if (art.fullscreenWeb) art.fullscreenWeb = false;
+        art.video.webkitEnterFullscreen();
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+// 进入系统全屏时，画质增强的画布不在系统播放器里，先关掉（视频本身是隐藏在画布下面的），退出后恢复
+function setupNativeFullscreenHandoff(video) {
+    let enhanceMode = 'off';
+    video.addEventListener('webkitbeginfullscreen', () => {
+        enhanceMode = videoEnhancer?.mode || 'off';
+        if (enhanceMode !== 'off') videoEnhancer.setMode('off', { remember: false });
+    });
+    video.addEventListener('webkitendfullscreen', () => {
+        if (enhanceMode !== 'off' && videoEnhancer) videoEnhancer.setMode(enhanceMode, { remember: false });
+        enhanceMode = 'off';
+    });
+}
+
+function setupWebFullscreenSetting() {
+    if (!usesNativeVideoFullscreen() || typeof art?.setting?.update !== 'function') return;
+    try {
+        art.setting.update({
+            name: 'web-fullscreen',
+            html: '网页全屏',
+            tooltip: '保留弹幕和手势',
+            onClick() {
+                art.setting.show = false;
+                art.fullscreenWeb = !art.fullscreenWeb;
+                updatePlayerControlDensity();
+                return '保留弹幕和手势';
+            }
+        });
+    } catch (error) { console.warn('更新播放设置失败:', error); }
+}
+
 function toggleFullscreenMode() {
     if (!art) return;
+    if (!art.fullscreenWeb && enterNativeVideoFullscreen()) return;
     if (!document.fullscreenEnabled && isMobilePlaybackDevice()) {
         art.fullscreenWeb = !art.fullscreenWeb;
         return;
@@ -2342,8 +2391,11 @@ function initPlayer(videoUrl) {
         { title: () => currentVideoTitle, isFullscreen: isPlayerFullscreenActive,
           isTouchDevice: isMobilePlaybackDevice,
           hasEpisodes: () => currentEpisodes.length > 1,
-          onEpisodes: toggleEpisodeDrawer }
+          onEpisodes: toggleEpisodeDrawer,
+          enterNativeFullscreen: enterNativeVideoFullscreen }
     );
+    setupNativeFullscreenHandoff(art.video);
+    setupWebFullscreenSetting();
     setupPlayerOverlays();
     // 记住用户选择的倍速；新视频加载时浏览器会把倍速重置为 1（此时 readyState 为 0），不能记下来
     art.video.addEventListener('ratechange', () => {
