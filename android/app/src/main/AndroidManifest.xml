@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 只要两个权限，都是安装时自动授予的普通权限：
+         上网（打开网站、播放、给电视发投屏指令），以及在 Wi-Fi 里用组播查找电视（DLNA / UPnP）。 -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <!-- 投屏：在局域网里用组播查找电视（DLNA / UPnP） -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <application

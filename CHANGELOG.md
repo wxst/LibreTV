@@ -2,6 +2,12 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.55 - 2026-10-31
+
+### Changed
+
+- Android app 1.0.1 asks for two permissions instead of four. It keeps `INTERNET` (the site, playback and cast commands) and `CHANGE_WIFI_MULTICAST_STATE` (finding TVs on Wi-Fi). `ACCESS_NETWORK_STATE` and `ACCESS_WIFI_STATE` were declared but never used, so they are gone. Both remaining permissions are normal install-time permissions with no prompts. Same signing key, so it installs over 1.0.0. The README and `android/README.md` list the permissions and why they are needed.
+
 ## 1.2.54 - 2026-10-31
 
 ### Added
