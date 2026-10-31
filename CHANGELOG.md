@@ -2,6 +2,36 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.57 - 2026-10-31
+
+### Added
+
+- 一键优选 (Settings → 数据源设置): every source is timed on the viewer's own network.
+  - Each source gets one search plus a short download of a real video segment (about 1 s, at most 1 MB, using the new quick mode of `SourceSpeed.probeEpisodeUrl`).
+  - The fastest 6 normal sources are then selected. Mirrors of one network keep only their fastest member, custom sources are kept, and adult sources are re-picked only when some were selected.
+  - The result lists every source's speed. 「撤销这次调整」 restores the previous selection.
+- Automatic runs:
+  - Once in the background on first visit.
+  - A weekly re-test afterwards. It only swaps a selected source that failed or is over 3× slower than an unselected one of the same kind, and says so in Settings, with undo.
+- Safeguards:
+  - If fewer than 3 sources are playable (most likely a flaky network), sources that at least answer searches fill the selection.
+  - On mobile data or Save-Data, only searches are timed.
+  - A run that reaches nothing changes nothing.
+- The settings source list is sorted by quality (measured speed, then the daily health check) and shows each source's speed. Automatic playback source choice and fallback also prefer faster sources.
+- Sources:
+  - New libraries: 爱蛋资源, 优质资源.
+  - New backup mirrors: 量子资源 (影视工厂), 无尽资源（备用）, 魔都资源（备用）, 新浪资源 (极速 family).
+  - Adult: 百万 and 丝袜 were removed (connections reset). Added 奥斯卡, 辣椒, 乐播, 奶香, 鲨鱼, 森林 and 杏吧, plus backup mirrors for 黄色仓库 and 玉兔. Each was checked by downloading a real video segment. souav, 滴滴 and 黑料 answer searches but their videos fail, so they are not added.
+  - The defaults migration (`20261031-sources-v4`) drops removed sources from saved selections. It no longer re-adds the defaults for users who have optimised.
+
+### Fixed
+
+- Danmaku:
+  - HTML entities such as `&#128014;` are decoded (🐎).
+  - Platform emote codes such as `[狗头]`, `[吃瓜]`, `[呆住]`, `[马年大吉]` and two-part `[打卡-打][打卡-卡]` become matching emoji (about 80 known codes plus keyword hints). Unknown codes are dropped, and comments left empty are skipped. Plain brackets like `[0]` stay.
+- Speed test: a sample that arrived in a single burst (small file or cache) reported impossible rates such as 333 MB/s. It is now timed from the request.
+- The settings button to the diagnostics page is now labelled 诊断页. The new 一键优选 button sits in the source settings.
+
 ## 1.2.56 - 2026-10-31
 
 ### Fixed

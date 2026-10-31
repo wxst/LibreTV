@@ -66,12 +66,69 @@
         return null;
     }
 
+    // 平台表情代码（腾讯 [狗头]、[打卡-打][打卡-卡]，爱奇艺、芒果类似）在网页里没有对应图片，
+    // 换成意思相近的 Unicode 表情；认不出的代码去掉，不再以方括号文字显示。
+    const EMOTES = {
+        '狗头': '🐶', '吃瓜': '🍉', '彩': '🎉', '撒花': '🌸', '叉手礼': '🙏', '一起冲': '🚀', '打call了': '📣', '打call': '📣',
+        '666啊': '👍', '666': '👍', '赞': '👍', '点赞': '👍', '鼓掌': '👏', '加油': '💪', '奋斗': '💪', '打卡': '✅', '签到': '✅',
+        '准时': '⏰', '上头': '🤯', '加更': '➕', '富翁': '💰', '金币': '🪙', '红包': '🧧', '皇冠': '👑', '放大镜': '🔍',
+        '亲': '😘', '亲亲': '😘', '爱心': '❤️', '比心': '🫶', '心': '❤️', '心碎': '💔', '破防': '💔', '意难平': '😣',
+        '泪奔': '😭', '大哭': '😭', '哭': '😭', '流泪': '😢', '委屈': '🥺', '可怜': '🥺', '憨笑': '😄', '微笑': '🙂',
+        '偷笑': '🤭', '大笑': '😆', '笑哭': '😂', '笑死我了': '🤣', '哈哈': '😆', '坏笑': '😏', '害羞': '😊', '色': '😍',
+        '发呆': '😶', '呆住': '😳', '惊讶': '😲', '吃惊': '😲', '握草': '😱', '震惊': '😱', '我裂开了': '💥', '裂开': '💥',
+        '擦汗': '😅', '汗': '😅', '尴尬': '😅', '没眼看': '🙈', '捂脸': '🤦', '你有事吗': '🤨', '我不理解': '🤔', '疑问': '❓',
+        '思考': '🤔', '无语': '😑', '白眼': '🙄', '生气': '😠', '发怒': '😡', '怒': '😡', '酷': '😎', '墨镜': '😎', '睡': '😴',
+        '晕': '😵', '吐': '🤮', '啊啊啊': '😫', '蹲': '👀', '围观': '👀', '喏': '👉', '准奏': '📜', '某': '🤫', '嘘': '🤫',
+        '好的': '👌', 'OK': '👌', '胜利': '✌️', '握手': '🤝', '抱抱': '🤗', '火': '🔥', '牛': '🐮', '强': '💪', '玫瑰': '🌹',
+        '6周年': '🎂', '生日快乐': '🎂', '马年大吉': '🐴🧧', '新年快乐': '🧧', '过年好': '🧧', '福': '🧧', '哟哟哟': '😜'
+    };
+    const EMOTE_HINTS = [
+        [/笑/, '😂'], [/哭|泪/, '😭'], [/赞|棒|666/, '👍'], [/爱|心/, '❤️'], [/怒|气/, '😠'], [/惊|吓/, '😲'], [/晕/, '😵'],
+        [/汗/, '😅'], [/酷/, '😎'], [/吃|饿/, '😋'], [/睡|困/, '😴'], [/花/, '🌸'], [/火|燃/, '🔥'], [/钱|金|币|富/, '💰'],
+        [/狗/, '🐶'], [/猫/, '🐱'], [/马/, '🐴'], [/牛/, '🐮'], [/年|春|福/, '🧧'], [/冲|飞/, '🚀'], [/打卡|签到/, '✅']
+    ];
+    const NAMED_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+    function decodeEntities(text) {
+        return String(text || '').replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code) => {
+            if (code[0] === '#') {
+                const point = code[1] === 'x' || code[1] === 'X' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+                try { return Number.isFinite(point) && point > 0 ? String.fromCodePoint(point) : match; } catch { return match; }
+            }
+            return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+        });
+    }
+
+    function emoteFor(code) {
+        let name = code.trim().replace(/N$/, '');
+        // [打卡-打][打卡-卡]：一个表情拆成两个代码，只在第一个出现时显示
+        const dash = name.indexOf('-');
+        if (dash > 0) {
+            const base = name.slice(0, dash);
+            const part = name.slice(dash + 1);
+            if (part && base.indexOf(part) > 0) return '';
+            name = base;
+        }
+        if (EMOTES[name]) return EMOTES[name];
+        for (const [pattern, emoji] of EMOTE_HINTS) if (pattern.test(name)) return emoji;
+        return '';
+    }
+
+    function cleanText(text) {
+        return decodeEntities(text)
+            .replace(/\[\/?em\]/gi, '')
+            // 只处理平台表情（含中文或在表里的代码）；[0]、[ok] 这类普通方括号原样保留
+            .replace(/\[([^\[\]\s]{1,12})\]/g, (match, code) => (/[\u4e00-\u9fff]/.test(code) || EMOTES[code] ? emoteFor(code) : match))
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
     // Busy scenes carry dozens of comments a second: keep the most liked ones, at most `perSecond`
     // in each second, drop very long ones and repeats of the same text close together.
     function thin(comments, perSecond) {
         const buckets = new Map();
         for (const item of comments) {
-            const text = String(item.text || '').trim();
+            const text = cleanText(item.text);
             if (!text || text.length > MAX_TEXT || !Number.isFinite(item.time) || item.time < 0) continue;
             const second = Math.floor(item.time);
             if (!buckets.has(second)) buckets.set(second, []);
@@ -222,5 +279,5 @@
         return best;
     }
 
-    window.Danmaku = { load, thin, SITE_NAMES, logic: { normalize, pickRow, sourceFor, sourcesFor, parseSourceUrl, thin, parseIqiyiXml, color, nearestFirst } };
+    window.Danmaku = { load, thin, SITE_NAMES, logic: { cleanText, normalize, pickRow, sourceFor, sourcesFor, parseSourceUrl, thin, parseIqiyiXml, color, nearestFirst } };
 })();

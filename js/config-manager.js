@@ -24,7 +24,8 @@ const CONFIG_STORAGE_KEYS = [
     'libretvSkipMarks',
     'sourceAutopilotV1',
     'sourceHealthHistoryV1',
-    'sourcePlaybackQualityV1'
+    'sourcePlaybackQualityV1',
+    'sourceBenchmarkV1'
 ];
 
 // 导入时按类型检查：格式不对的项跳过，不写进本地存储（否则页面读取时会出错）

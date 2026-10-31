@@ -152,7 +152,7 @@ test('existing users lose removed sources and gain the new defaults once', async
   const app = await read('js/app.js');
   assert.match(app, /const stillAvailable = selectedAPIs\.filter\(apiId => apiId\.startsWith\('custom_'\) \|\| API_SITES\[apiId\]\)/);
   const config = await read('js/config.js');
-  assert.match(config, /DEFAULT_API_MIGRATION_VERSION = '20261028-sources-v3'/);
+  assert.match(config, /DEFAULT_API_MIGRATION_VERSION = '20261031-sources-v4'/);
   const douban = await read('js/douban.js');
   assert.doesNotMatch(douban, /API_SITES\.dbzy/);
   const index = await read('index.html');
@@ -183,4 +183,40 @@ test('config import skips malformed values and exports the newer settings', asyn
   });
   assert.deepEqual(Object.keys(result.data).sort(), ['defaultApiMigrationVersion', 'doubanEnabled', 'hasInitializedDefaults', 'watchLaterV1']);
   assert.equal(result.migrationMessages.filter(text => text.startsWith('已跳过')).length, 3);
+});
+
+test('one-tap optimisation picks the fastest source of each family and keeps custom sources', async () => {
+  const { logic } = await load('js/source-benchmark.js', 'SourceBenchmark');
+  const { choose, weeklySwaps, firstEpisodeUrl, speedScore } = logic;
+  const map = {
+    a: { name: 'A' }, b: { name: 'B', family: 'x' }, c: { name: 'C', family: 'x' }, d: { name: 'D' }, e: { name: 'E' },
+    p: { name: 'P', adult: true }, q: { name: 'Q', adult: true }
+  };
+  const results = {
+    a: { ok: true, kbps: 500 }, b: { ok: true, kbps: 3000 }, c: { ok: true, kbps: 2000 }, d: { ok: false, reason: '无法访问' },
+    e: { ok: true, kbps: 0, searchMs: 800 }, p: { ok: true, kbps: 900 }, q: { ok: false }
+  };
+  let outcome = choose({ results, siteMap: map, selected: ['a', 'd', 'custom_0'], pick: 3 });
+  assert.deepEqual(plain(outcome.selected), ['b', 'a', 'e', 'custom_0'], 'one per family, fastest first, failed dropped, custom kept');
+  assert.deepEqual(plain(outcome.removed), ['d']);
+  assert.equal(outcome.changed, true);
+
+  outcome = choose({ results, siteMap: map, selected: ['a', 'q'], pick: 2, adultPick: 2 });
+  assert.deepEqual(plain(outcome.selected), ['b', 'a', 'p'], 'adult sources are re-picked only when some were selected');
+  assert.equal(choose({ results: { d: { ok: false } }, siteMap: map, selected: ['a'] }).changed, false, 'nothing reachable: change nothing');
+  // Too few playable sources (a flaky network): fill up with ones that at least search, fastest search first.
+  outcome = choose({
+    results: { a: { ok: true, kbps: 900 }, d: { ok: false, searchOk: true, searchMs: 900 }, e: { ok: false, searchOk: true, searchMs: 300 }, b: { ok: false } },
+    siteMap: map, selected: ['a'], pick: 3
+  });
+  assert.deepEqual(plain(outcome.selected), ['a', 'e', 'd']);
+
+  const weekly = weeklySwaps({ results: { ...results, a: { ok: true, kbps: 400 }, e: { ok: true, kbps: 2500 } }, siteMap: map, selected: ['a', 'b'] });
+  assert.deepEqual(plain(weekly.swaps), [{ from: 'a', to: 'e', reason: '明显变慢' }]);
+  assert.equal(weeklySwaps({ results, siteMap: map, selected: ['b', 'c'] }).swaps.length, 0, 'healthy picks stay');
+
+  assert.equal(firstEpisodeUrl('第1集$https://v.example/a/index.m3u8#第2集$https://v.example/b/index.m3u8'), 'https://v.example/a/index.m3u8');
+  assert.equal(firstEpisodeUrl('HD$https://share.example/play/abc$$$第1集$https://cdn.example/1.mp4'), 'https://cdn.example/1.mp4');
+  assert.ok(speedScore({ ok: true, kbps: 10 }) > speedScore({ ok: true, kbps: 0, searchMs: 10 }));
+  assert.equal(speedScore({ ok: false }), -1);
 });

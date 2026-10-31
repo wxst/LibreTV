@@ -175,8 +175,10 @@ function initializeDefaultSettings() {
         selectedAPIs = stillAvailable;
         changed = true;
     }
+    // 用过一键优选的用户，已经按自己的网络选好了源，不再把默认源加回去
+    const optimized = Boolean(localStorage.getItem('sourceBenchmarkV1'));
     defaultApiIds.forEach(apiId => {
-        if (!selectedAPIs.includes(apiId)) {
+        if (!optimized && !selectedAPIs.includes(apiId)) {
             selectedAPIs.push(apiId);
             changed = true;
         }
@@ -237,8 +239,8 @@ function initAPICheckboxes() {
     normalTitle.textContent = '普通资源';
     normaldiv.appendChild(normalTitle);
 
-    // 创建普通API源的复选框
-    Object.keys(API_SITES).forEach(apiKey => {
+    // 创建普通API源的复选框：按质量排序（一键优选测得的速度 + 每日体检的健康度），好的在前
+    sortedApiKeys().forEach(apiKey => {
         const api = API_SITES[apiKey];
         if (api.adult) return; // 跳过成人内容API，稍后添加
 
@@ -257,6 +259,7 @@ function initAPICheckboxes() {
                    data-api="${apiKey}">
             <label for="api_${apiKey}" class="ml-1 text-xs text-gray-400 truncate">${escapeHtmlAttr(api.name)}</label>
             ${mirrors.length ? `<span class="api-mirror-tag" title="${escapeHtmlAttr(`与${mirrors.join('、')}内容相同（同一家的镜像站），选一个即可，其余可作备用`)}">同源</span>` : ''}
+            ${apiSpeedTag(apiKey)}
             <span class="api-health-dot" data-health-for="${apiKey}" aria-hidden="true"></span>
         `;
         normaldiv.appendChild(checkbox);
@@ -276,6 +279,33 @@ function initAPICheckboxes() {
     checkAdultAPIsSelected();
     window.SourceAutopilot?.renderHealthDots();
 }
+
+// 资源站按质量排序：测得的速度为主，再看每日体检；没有测过的保持原来的顺序
+function sortedApiKeys() {
+    const keys = Object.keys(API_SITES);
+    const quality = window.SourceBenchmark?.qualityOf;
+    if (typeof quality !== 'function') return keys;
+    return keys.map((key, index) => ({ key, index, value: quality(key) }))
+        .sort((a, b) => b.value - a.value || a.index - b.index)
+        .map(item => item.key);
+}
+
+function apiSpeedTag(apiKey) {
+    const kbps = window.SourceBenchmark?.speedOf?.(apiKey) || 0;
+    if (!kbps) return '';
+    const text = kbps >= 1024 ? `${(kbps / 1024).toFixed(1)}M/s` : `${kbps}K/s`;
+    return `<span class="api-speed-tag" title="最近一次一键优选测得的视频下载速度">${text}</span>`;
+}
+
+// 一键优选等模块用：整体替换已选的资源站并刷新设置里的勾选
+function setSelectedApiIds(ids) {
+    selectedAPIs = [...new Set(Array.from(ids || []))];
+    localStorage.setItem('selectedAPIs', JSON.stringify(selectedAPIs));
+    initAPICheckboxes();
+    renderCustomAPIsList();
+    updateSelectedApiCount();
+}
+window.setSelectedApiIds = setSelectedApiIds;
 
 // 添加成人API列表
 function addAdultAPI() {
@@ -297,7 +327,7 @@ function addAdultAPI() {
         adultdiv.appendChild(adultTitle);
 
         // 创建成人API源的复选框
-        Object.keys(API_SITES).forEach(apiKey => {
+        sortedApiKeys().forEach(apiKey => {
             const api = API_SITES[apiKey];
             if (!api.adult) return; // 仅添加成人内容API
 
