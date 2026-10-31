@@ -2,6 +2,12 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.53 - 2026-10-31
+
+### Fixed
+
+- The footer's build time did not match the visitor's local time. The `VERSION.txt` stamp was shown as written, and recent stamps were not even the real release time. Stamps now record the release time in UTC, and the footer converts them to the visitor's time zone: this release reads 15:xx in Beijing and 00:xx in Los Angeles.
+
 ## 1.2.52 - 2026-10-31
 
 ### Added
