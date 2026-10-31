@@ -6,12 +6,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.DatagramPacket;
 import java.net.HttpURLConnection;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.net.NetworkInterface;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -70,10 +73,7 @@ public final class DlnaClient {
             while (System.currentTimeMillis() < deadline) {
                 // 组播包可能丢失：开头和中途各发一轮
                 if (round == 0 || (round == 1 && System.currentTimeMillis() > deadline - timeoutMs / 2)) {
-                    for (String target : targets) {
-                        byte[] message = searchMessage(target).getBytes(StandardCharsets.UTF_8);
-                        socket.send(new DatagramPacket(message, message.length, group, SSDP_PORT));
-                    }
+                    sendSearch(socket, group, targets);
                     round++;
                 }
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
@@ -100,6 +100,52 @@ public final class DlnaClient {
             for (Device device : found) devices.put(device.id, device);
         }
         return found;
+    }
+
+    /**
+     * 从每个可用的局域网网卡（Wi-Fi、有线）各发一遍 M-SEARCH：只用系统默认网卡时，
+     * 有的手机会把组播发到移动数据或 VPN 上，同一 Wi-Fi 里的电视就收不到。
+     */
+    private static void sendSearch(MulticastSocket socket, InetAddress group, String[] targets) throws IOException {
+        List<NetworkInterface> interfaces = lanInterfaces();
+        boolean sent = false;
+        for (NetworkInterface network : interfaces) {
+            try {
+                socket.setNetworkInterface(network);
+                for (String target : targets) send(socket, group, target);
+                sent = true;
+            } catch (IOException ignored) {
+                // 这块网卡发不出去（未连接、没有组播路由），试下一块
+            }
+        }
+        if (!sent) {
+            for (String target : targets) send(socket, group, target);
+        }
+    }
+
+    private static void send(MulticastSocket socket, InetAddress group, String target) throws IOException {
+        byte[] message = searchMessage(target).getBytes(StandardCharsets.UTF_8);
+        socket.send(new DatagramPacket(message, message.length, group, SSDP_PORT));
+    }
+
+    static List<NetworkInterface> lanInterfaces() {
+        List<NetworkInterface> result = new ArrayList<>();
+        try {
+            for (NetworkInterface network : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!network.isUp() || network.isLoopback() || !network.supportsMulticast() || network.isVirtual()) continue;
+                String name = network.getName().toLowerCase(Locale.ROOT);
+                // 移动数据、VPN 隧道上没有电视
+                if (name.startsWith("rmnet") || name.startsWith("ccmni") || name.startsWith("tun") || name.startsWith("ppp")) continue;
+                for (InetAddress address : Collections.list(network.getInetAddresses())) {
+                    if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
+                        result.add(network);
+                        break;
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return result;
     }
 
     static String searchMessage(String target) {
