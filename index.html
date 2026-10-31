@@ -69,12 +69,16 @@
                 <p class="text-xs text-gray-500 mb-3">App 版本 <span class="android-app-version"></span>。播放页的「投屏」可以把视频投到同一 Wi-Fi 下的电视。</p>
                 <button type="button" class="lt-btn lt-btn-sm android-app-change-site">更换网站地址</button>
             </div>
-            <!-- 安卓浏览器里：下载 App -->
+            <!-- 下载安卓 App：手机版 / 电视版，按当前设备推荐其中一个 -->
             <div id="androidAppDownloadCard" class="lt-card" hidden>
                 <label class="lt-card-title">安卓 App</label>
-                <p class="text-sm text-gray-300 mb-1">支持一键投屏到电视（DLNA，乐播和大多数智能电视、盒子都能收），打开视频直接有声播放，全屏自动横屏，没有浏览器地址栏。</p>
-                <p class="text-xs text-gray-500 mb-3">第一次打开时输入本站网址即可，网站更新后 App 里自动生效。</p>
-                <a class="lt-btn lt-btn-sm" href="/download/LibreTV.apk" download>下载安卓 App</a>
+                <p class="text-sm text-gray-300 mb-1"><b>手机版</b>：一键投屏到电视（DLNA），打开视频直接有声播放，全屏自动横屏。</p>
+                <p class="text-sm text-gray-300 mb-1"><b>电视版</b>：装在安卓电视或电视盒子上，用遥控器操作，出现在电视桌面。</p>
+                <p class="text-xs text-gray-500 mb-3 android-app-hint">第一次打开时输入本站网址即可，网站更新后 App 里自动生效。</p>
+                <div class="flex flex-wrap gap-2">
+                    <a class="lt-btn lt-btn-sm android-app-phone" href="/download/LibreTV.apk" download>下载手机版</a>
+                    <a class="lt-btn lt-btn-sm android-app-tv" href="/download/LibreTV-TV.apk" download>下载电视版</a>
+                </div>
             </div>
             <!-- 数据源设置区域 -->
             <div class="lt-card">
@@ -494,6 +498,7 @@
     <script src="js/app.js"></script>
 
     <!-- PWA 注册 -->
+    <script src="js/tv-mode.js"></script>
     <script src="js/pwa-register.js"></script>
     <script src="js/ios-install.js"></script>
     <script src="js/android-app.js"></script>
