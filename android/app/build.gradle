@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+// 签名：从 keystore.properties（不进仓库）或环境变量读取；都没有时只能打调试包
+def signingProps = new Properties()
+def signingFile = rootProject.file('keystore.properties')
+if (signingFile.exists()) signingFile.withInputStream { signingProps.load(it) }
+def signingValue = { String key, String env -> signingProps.getProperty(key) ?: System.getenv(env) }
+
+android {
+    namespace 'io.github.wxst.libretv'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.wxst.libretv'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        release {
+            def store = signingValue('storeFile', 'LIBRETV_KEYSTORE')
+            if (store) {
+                storeFile file(store)
+                storePassword signingValue('storePassword', 'LIBRETV_KEYSTORE_PASSWORD')
+                keyAlias signingValue('keyAlias', 'LIBRETV_KEY_ALIAS')
+                keyPassword signingValue('keyPassword', 'LIBRETV_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (signingConfigs.release.storeFile) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}

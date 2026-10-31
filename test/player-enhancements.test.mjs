@@ -236,3 +236,28 @@ test('iPhone install hint explains the share menu per browser', async () => {
   assert.equal(isAppleTouchDevice('Mozilla/5.0 (Linux; Android 14)', 'Linux', 5), false);
   assert.equal(isAppleTouchDevice('Mozilla/5.0 (Macintosh)', 'MacIntel', 5), true, 'iPad reports itself as a Mac');
 });
+
+test('the Android app shell is wired to the site: cast bridge, cards and the published APK', async () => {
+  const { stat } = await import('node:fs/promises');
+  const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+  const [player, playerHtml, index, sw, manifest, activity, cast] = await Promise.all([
+    read('js/player.js'), read('player.html'), read('index.html'), read('service-worker.js'),
+    read('android/app/src/main/AndroidManifest.xml'), read('android/app/src/main/java/io/github/wxst/libretv/MainActivity.java'), read('js/app-cast.js')
+  ]);
+  assert.match(player, /LibreTVCast\?\.isApp \? '<button type="button" id="castButton"/);
+  assert.match(player, /LibreTVCast\?\.active\) window\.LibreTVCast\.follow/);
+  assert.match(playerHtml, /js\/app-cast\.js[\s\S]*js\/player\.js/);
+  assert.match(index, /id="androidAppDownloadCard"[\s\S]*href="\/download\/LibreTV\.apk"/);
+  assert.match(sw, /'\/js\/app-cast\.js'/);
+  assert.match(sw, /startsWith\('\/download\/'\)/, 'the APK is never cached by the service worker');
+  assert.match(manifest, /CHANGE_WIFI_MULTICAST_STATE/);
+  assert.match(activity, /addJavascriptInterface\(new Bridge\(\), "LibreTVApp"\)/);
+  assert.match(activity, /setMediaPlaybackRequiresUserGesture\(false\)/);
+  // The bridge methods the page calls exist on the Java side.
+  for (const method of ['discover', 'control', 'keepScreenOn', 'siteUrl', 'changeSite', 'version']) {
+    assert.match(activity, new RegExp(`public \\w+ ${method}\\(`), method);
+  }
+  for (const callback of ['onDevices', 'onResult']) assert.match(activity, new RegExp(`callPage\\("${callback}"`));
+  assert.match(cast, /onDevices,\s*onResult/);
+  assert.ok((await stat(new URL('../download/LibreTV.apk', import.meta.url))).size > 20000);
+});

@@ -1,4 +1,4 @@
-const APP_VERSION = '202610310713';
+const APP_VERSION = '202610310741';
 const APP_SHELL_CACHE = `libretv-shell-${APP_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
@@ -58,6 +58,8 @@ const APP_SHELL_ASSETS = [
   '/js/version-check.js',
   '/js/pwa-register.js',
   '/js/ios-install.js',
+  '/js/app-cast.js',
+  '/js/android-app.js',
   '/libs/sha256.min.js',
   '/libs/hls.min.js',
   '/libs/artplayer.min.js',
@@ -75,6 +77,7 @@ function isNetworkOnlyRequest(request) {
   return (
     pathname.startsWith('/api/') ||
     pathname.startsWith('/proxy/') ||
+    pathname.startsWith('/download/') ||
     pathname.includes('/api.php/') ||
     pathname.endsWith('.m3u8') ||
     pathname.endsWith('.ts') ||
