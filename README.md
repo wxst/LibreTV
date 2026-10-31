@@ -6,7 +6,7 @@
 
 **自部署的影视聚合搜索与播放器**
 
-一个搜索框搜遍多个资源站，播放器自带去广告、画质增强、下载和统计信息。
+一个搜索框搜遍多个资源站，播放器自带去广告、画质增强、弹幕、下载和统计信息，安卓 App 还能一键投屏到电视。
 部署在你自己的 Cloudflare Pages 上，免费、无需服务器、无需构建。
 
 [![CI](https://github.com/wxst/LibreTV/actions/workflows/ci.yml/badge.svg)](https://github.com/wxst/LibreTV/actions/workflows/ci.yml)
@@ -14,7 +14,7 @@
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 ![Cloudflare Pages](https://img.shields.io/badge/deploy-Cloudflare%20Pages-f38020)
 
-[功能特色](#-功能特色) · [部署](#-部署) · [常见问题](#-常见问题) · [更新日志](CHANGELOG.md)
+[功能特色](#-功能特色) · [安卓 App](#-安卓-app投屏到电视) · [部署](#-部署) · [常见问题](#-常见问题) · [更新日志](CHANGELOG.md)
 
 </div>
 
@@ -36,7 +36,8 @@
 | 💬 **弹幕** | 自动找到同一集在腾讯视频、爱奇艺、芒果TV 的公开弹幕，挑点赞多的显示，密度可调 |
 | 📊 **统计信息** | 仿 YouTube「详细统计信息」：连接速度、缓冲、码率、编码、丢帧一目了然 |
 | 🩺 **资源站自动体检** | 每天自动检测各资源站，坏了自动停用并换上同源镜像 |
-| 📱 **装成 App** | 支持 PWA，手机和电脑都能「添加到桌面」，全屏手势操作 |
+| 📺 **安卓 App 投屏** | 安卓 App 一键 DLNA 投屏到电视（乐播和大多数智能电视、盒子都能收），打开就有声播放、全屏自动横屏 |
+| 📱 **装成 App** | 支持 PWA，手机和电脑都能「添加到桌面」，全屏手势操作；iPhone 用自带的 AirPlay 投屏 |
 
 ### 🔍 找片
 
@@ -102,6 +103,23 @@
 - **OpenClash 直连规则**：设置 → 路由器直连规则，一键生成资源站、视频服务器、海报、豆瓣的 `DOMAIN-SUFFIX,域名,DIRECT` 规则，粘贴到 OpenClash 即可。
 - **配置导入导出**：换设备时在设置里导出、导入即可迁移资源站选择和偏好。
 - **快**：样式预编译，手机首屏约 0.3 秒（4 倍 CPU 降速模拟测得）。
+
+## 📺 安卓 App（投屏到电视）
+
+浏览器没法发现局域网里的电视，所以安卓上另提供一个很小的 App（约 100 KB）。它只是一个外壳，里面打开的还是你自己部署的网站，网站更新后 App 里自动生效。App 额外提供：
+
+- **投屏到电视**：播放页多一个「投屏」按钮，自动找到同一 Wi-Fi 下支持 DLNA 的电视或盒子（乐播投屏、电视自带的投屏、小米 / 华为 / 海信 / TCL / 创维等），选中就由电视直接播放，手机可以锁屏。播放器下方的状态条可以暂停 / 继续、换设备、停止投屏；投屏中换集，电视跟着换。
+- **打开视频直接有声播放**（浏览器要先点一下）。
+- **全屏自动横屏**，没有浏览器地址栏。
+
+**安装**：在安卓手机的浏览器里打开你的网站 → 设置 →「安卓 App」→ 下载安装；也可以直接下载仓库里的 [download/LibreTV.apk](download/LibreTV.apk)。第一次打开时输入你的网站地址（只需一次，之后在 App 的设置里可以更换）。系统提示「未知来源」时允许本次安装即可。
+
+**说明**：
+- 投屏时视频由电视直接从资源站加载，所以去广告和画质增强在电视上不生效，电视也要能访问资源站（国内网络一般没问题）。
+- 电视需要和手机连同一个 Wi-Fi，并开着投屏功能（多数电视开机即可；部分要先打开「乐播投屏」或「无线投屏」）。找不到时点「重新查找」。
+- iPhone 不需要这个 App：Safari 自带的 AirPlay 投屏就能直接投到支持 AirPlay 的电视。
+
+App 的源代码在 [android/](android/)，编译方法见 [android/README.md](android/README.md)。
 
 ## 🚀 部署
 
@@ -251,7 +269,13 @@ iPhone 上点全屏会进入系统播放器，iOS 不允许网页锁定屏幕方
 <details>
 <summary><b>怎么装成 App</b></summary>
 
-手机浏览器菜单里选「添加到主屏幕」，电脑上的 Chrome / Edge 地址栏右侧有安装按钮。安装后以独立窗口打开；离线时只能打开应用外壳，搜索和播放需要联网。
+安卓推荐安装 [安卓 App](#-安卓-app投屏到电视)（能投屏到电视）；也可以在浏览器菜单里选「添加到主屏幕」。电脑上的 Chrome / Edge 地址栏右侧有安装按钮。iPhone 见上面一条。离线时只能打开应用外壳，搜索和播放需要联网。
+</details>
+
+<details>
+<summary><b>安卓 App 找不到电视 / 投屏失败</b></summary>
+
+确认手机和电视连的是同一个 Wi-Fi（不要一个连 5G、一个连访客网络），电视开着投屏功能，然后在投屏面板里点「重新查找」。部分路由器默认拦截组播（「AP 隔离」「组播转单播」之类的选项），需要关闭。投屏后电视没有画面，多半是电视访问不到该资源站，换个源再投。
 </details>
 
 ## ⚠️ 声明
@@ -274,6 +298,7 @@ npm run smoke:browser  # 可选：浏览器冒烟检查（需要 Playwright）
 
 - 页面样式里的 Tailwind 类预先编译在 `css/tailwind.css`（随仓库提交，部署无需构建）。类名要完整写出，不要拼接成 `bg-${color}`，否则扫描不到；`npm test` 会检查该文件是否过期。
 - 每次用户可见变更都要同步更新 `package.json`、`package-lock.json`、`js/config.js` 里的 `SITE_CONFIG.version`、`VERSION.txt` 和 `CHANGELOG.md`。
+- 安卓 App 在 `android/`（纯 Java，无第三方依赖），编译方法见 [android/README.md](android/README.md)；改动后重新编译并替换 `download/LibreTV.apk`。
 - CI 在 push 和 pull request 上运行测试、JS 语法检查和空白检查；`main` 只作为通过 CI 后的生产部署分支，变更通过 PR 合并。
 
 更多：[CHANGELOG.md](CHANGELOG.md) · [ROADMAP.md](ROADMAP.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [MIGRATION.md](MIGRATION.md)

@@ -2,6 +2,27 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.54 - 2026-10-31
+
+### Added
+
+- Android app (`android/`, published as `download/LibreTV.apk`, about 80 KB). It is a thin shell: a full-screen WebView opens your own LibreTV site, so site updates reach the app without reinstalling. The site address is entered once on first launch and can be changed later from the site's settings. It adds what an Android browser cannot do:
+  - **Casting to a TV (DLNA)**. The player shows a 投屏 button. It finds TVs and boxes on the same Wi-Fi that accept DLNA (乐播, built-in TV casting, most Xiaomi / Huawei / Hisense / TCL / Skyworth sets) via SSDP, and tells the chosen one to play the episode over SOAP (`SetAVTransportURI` / `Play` / `Pause` / `Seek` / `Stop`). The TV fetches the stream itself and the phone can lock.
+    - A bar under the player offers pause / resume, another device and stop casting.
+    - The phone's own playback pauses while casting; switching episodes follows on the TV; the cast starts at the current position.
+    - Plain `java.net`, no third-party SDK.
+  - Video starts with sound (no tap needed), fullscreen switches to landscape and hides the system bars, and the screen stays on while playing.
+  - Links to other sites open in the system browser, and 导入配置 can pick files.
+- Site: `js/app-cast.js` (the device picker and cast bar, only active inside the app through `window.LibreTVApp`). The home settings show an App 设置 card inside the app (site address, version, 更换网站地址) and a 下载安卓 App card in Android browsers.
+- README: an 安卓 App section, FAQ entries for installing and for troubleshooting casting, and `android/README.md` with build and signing instructions. The signing key is not in the repository.
+
+Checked:
+- The DLNA client against a simulated renderer: SSDP discovery finds it, and play with a start position, pause, resume, seek and stop arrive in order with the URL and title escaped correctly.
+- 4 JVM unit tests for the description parsing, metadata escaping, seek format and SSDP headers.
+- The web flow with a simulated app bridge: search, pick, local pause, the cast bar, pause, episode follow and stop.
+- Android lint reports 0 errors, and the release APK's signature verifies.
+- It has not yet been tried on a real phone and TV.
+
 ## 1.2.53 - 2026-10-31
 
 ### Fixed

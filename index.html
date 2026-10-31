@@ -62,6 +62,20 @@
                 <p class="ios-install-steps text-sm text-gray-300 mb-1"></p>
                 <p class="text-xs text-gray-500">从主屏幕打开没有浏览器地址栏和工具栏，用起来像独立 App。</p>
             </div>
+            <!-- LibreTV 安卓 App 里：当前网站地址与更换入口 -->
+            <div id="androidAppSettingsCard" class="lt-card" hidden>
+                <label class="lt-card-title">App 设置</label>
+                <p class="text-sm text-gray-300 mb-1">网站地址：<span class="android-app-site break-all"></span></p>
+                <p class="text-xs text-gray-500 mb-3">App 版本 <span class="android-app-version"></span>。播放页的「投屏」可以把视频投到同一 Wi-Fi 下的电视。</p>
+                <button type="button" class="lt-btn lt-btn-sm android-app-change-site">更换网站地址</button>
+            </div>
+            <!-- 安卓浏览器里：下载 App -->
+            <div id="androidAppDownloadCard" class="lt-card" hidden>
+                <label class="lt-card-title">安卓 App</label>
+                <p class="text-sm text-gray-300 mb-1">支持一键投屏到电视（DLNA，乐播和大多数智能电视、盒子都能收），打开视频直接有声播放，全屏自动横屏，没有浏览器地址栏。</p>
+                <p class="text-xs text-gray-500 mb-3">第一次打开时输入本站网址即可，网站更新后 App 里自动生效。</p>
+                <a class="lt-btn lt-btn-sm" href="/download/LibreTV.apk" download>下载安卓 App</a>
+            </div>
             <!-- 数据源设置区域 -->
             <div class="lt-card">
                 <label class="lt-card-title">数据源设置</label>
@@ -477,6 +491,7 @@
     <!-- PWA 注册 -->
     <script src="js/pwa-register.js"></script>
     <script src="js/ios-install.js"></script>
+    <script src="js/android-app.js"></script>
 
     <!-- 环境变量注入脚本 -->
     <script>

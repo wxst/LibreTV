@@ -2421,6 +2421,7 @@ function initPlayer(videoUrl) {
           enterNativeFullscreen: enterNativeVideoFullscreen }
     );
     setupNativeFullscreenHandoff(art.video);
+    setupAppScreenWake(art.video);
     setupWebFullscreenSetting();
     setupPlayerOverlays();
     // 记住用户选择的倍速；新视频加载时浏览器会把倍速重置为 1（此时 readyState 为 0），不能记下来
@@ -2904,6 +2905,8 @@ function playEpisode(index) {
         art.switch = url;
         tryStartPlayback();
     }
+    // 正在投屏时，电视跟着播放新的一集
+    if (window.LibreTVCast?.active) window.LibreTVCast.follow(appCastSource());
 
     // 更新UI
     updateEpisodeInfo();
@@ -3393,6 +3396,7 @@ function renderResourceInfoBar() {
       </div>
       <div class="quick-player-actions">
         <button type="button" class="resource-switch-btn" id="switchResourceBtn" onclick="showSwitchResourceModal()">换源</button>
+        ${window.LibreTVCast?.isApp ? '<button type="button" id="castButton" onclick="openAppCast()">投屏</button>' : ''}
         ${isMobilePlaybackDevice() || !window.PlayerDownload ? '' : '<button type="button" id="downloadVideoButton" aria-haspopup="menu" aria-expanded="false" onclick="toggleDownloadMenu(this)">下载</button>'}
         ${currentEpisodes.length > 1 ? '<button type="button" id="quickEpisodesButton" aria-expanded="false" onclick="toggleQuickEpisodes()">选集</button>' : ''}
         <button type="button" id="quickSettingsButton" aria-expanded="false" onclick="toggleQuickSettings()">更多</button>
@@ -3401,6 +3405,25 @@ function renderResourceInfoBar() {
     document.querySelectorAll('.quick-episode-section').forEach(section => { section.hidden = true; });
     document.getElementById('quickMoreActions')?.replaceChildren();
     renderQuickMoreActions();
+}
+
+// ---- 投屏（仅安卓 App）：DLNA 投到电视，电视直接拉流播放 ----
+function appCastSource() {
+    return { url: currentVideoUrl, title: downloadFileName(), position: art?.video?.currentTime || 0 };
+}
+
+function openAppCast() {
+    window.LibreTVCast?.open(appCastSource(), () => {
+        // 电视开始播放后，手机上的播放暂停，避免两边同时出声
+        if (art?.video && !art.video.paused) art.pause();
+    });
+}
+
+// App 里播放时保持屏幕常亮，暂停或播完后恢复
+function setupAppScreenWake(video) {
+    if (!window.LibreTVCast?.isApp || !video) return;
+    video.addEventListener('play', () => window.LibreTVCast.keepScreenOn(true));
+    ['pause', 'ended', 'emptied'].forEach(name => video.addEventListener(name, () => window.LibreTVCast.keepScreenOn(false)));
 }
 
 // ---- 下载（仅电脑版）：下载本集为 MP4，或复制视频地址交给下载工具 ----
