@@ -103,26 +103,29 @@ test('verified customer API sources are available and invalid placeholders are r
   assert.equal(window.API_SITES.ckzy.api, 'https://www.ckzy1.com/api.php/provide/vod');
   assert.equal(window.API_SITES.jkun.adult, true);
   assert.equal(window.API_SITES.jkun.api, 'https://jkunzyapi.com/api.php/provide/vod');
-  assert.equal(window.API_SITES.bwzy.adult, true);
-  assert.equal(window.API_SITES.bwzy.api, 'https://api.bwzyz.com/api.php/provide/vod');
   assert.equal(window.API_SITES.r155.adult, true);
   assert.equal(window.API_SITES.r155.api, 'https://155api.com/api.php/provide/vod');
   assert.equal(window.API_SITES.huangcang.adult, true);
   assert.equal(window.API_SITES.huangcang.api, 'https://hsckzy.vip/api.php/provide/vod');
   assert.equal(window.API_SITES.yutu.adult, true);
   assert.equal(window.API_SITES.yutu.api, 'https://yutuzy10.com/api.php/provide/vod');
-  assert.equal(window.API_SITES.siwa.adult, true);
-  assert.equal(window.API_SITES.siwa.api, 'https://siwazyw.tv/api.php/provide/vod');
+  assert.equal(window.API_SITES.shayu.adult, true);
+  assert.equal(window.API_SITES.shayu.api, 'https://shayuapi.com/api.php/provide/vod');
+  // 2026-10-31: these stopped answering (connection reset) and were removed.
+  for (const removed of ['bwzy', 'siwa']) assert.equal(window.API_SITES[removed], undefined, removed);
+  // Mirrors share a family so only the fastest of each is picked.
+  assert.equal(window.API_SITES.lzcaiji.family, window.API_SITES.ysgc.family);
+  assert.equal(window.API_SITES.xinlang.family, 'jisu');
   assert.equal(window.API_SITES.qiqi, undefined);
   assert.equal(window.API_SITES.testSource, undefined);
   // 2026-10: these no longer answer keyword searches (anti-bot page, Cloudflare challenge, "forbids keyword search", "server busy").
-  for (const removed of ['wolong', 'p2100', 'dbzy', 'xinlang']) assert.equal(window.API_SITES[removed], undefined, removed);
+  for (const removed of ['wolong', 'p2100', 'dbzy']) assert.equal(window.API_SITES[removed], undefined, removed);
   assert.equal(window.API_SITES.ffzy.api, 'https://api.ffzyapi.com/api.php/provide/vod');
   assert.equal(window.API_SITES.bfzy.api, 'https://bfzyapi.com/api.php/provide/vod');
   assert.equal(window.API_SITES.zy360.api, 'https://360zy.com/api.php/provide/vod');
   // Mirrors of one network share a family so the settings can say "pick one".
   const jisu = Object.keys(window.API_SITES).filter(key => window.API_SITES[key].family === 'jisu');
-  assert.deepEqual(jisu, ['jszy', 'huya', 'guangsu', 'jinying', 'hongniu', 'hhzy']);
+  assert.deepEqual(jisu, ['jszy', 'huya', 'guangsu', 'jinying', 'hongniu', 'hhzy', 'xinlang']);
   assert.deepEqual(Array.from(window.DEFAULT_SELECTED_APIS), ['ysgc', 'ffzy', 'bfzy', 'jszy', 'wujin']);
   assert.equal(window.DEFAULT_SELECTED_APIS.filter(key => window.API_SITES[key].family === 'jisu').length, 1);
 });
@@ -587,7 +590,7 @@ test('source health checks unselect failed sources for the current user', async 
 test('yellow content filter skips adult sources and adult-looking search results', async () => {
   const storage = new Map([
     ['yellowFilterEnabled', 'true'],
-    ['selectedAPIs', JSON.stringify(['ysgc', 'siwa', 'custom_0', 'custom_1'])],
+    ['selectedAPIs', JSON.stringify(['ysgc', 'shayu', 'custom_0', 'custom_1'])],
     ['customAPIs', JSON.stringify([
       { name: '自定义黄色源', url: 'https://adult.example/api.php/provide/vod', isAdult: true },
       { name: '自定义普通源', url: 'https://safe.example/api.php/provide/vod' }
@@ -623,13 +626,13 @@ test('yellow content filter skips adult sources and adult-looking search results
   vm.runInContext(await readProjectFile('js/app.js'), sandbox);
 
   assert.deepEqual(
-    Array.from(sandbox.window.getSearchableApiIds(['ysgc', 'siwa', 'custom_0', 'custom_1'])),
+    Array.from(sandbox.window.getSearchableApiIds(['ysgc', 'shayu', 'custom_0', 'custom_1'])),
     ['ysgc', 'custom_1']
   );
 
   const filtered = sandbox.window.filterYellowContentResults([
     { vod_name: '世界的主人', type_name: '剧情', source_code: 'ysgc' },
-    { vod_name: '普通标题', type_name: '剧情', source_code: 'siwa', source_name: '丝袜资源' },
+    { vod_name: '普通标题', type_name: '剧情', source_code: 'shayu', source_name: '鲨鱼资源' },
     { vod_name: '美女主播私拍', type_name: '国产自拍', source_code: 'ysgc' },
     { vod_name: '普通标题', type_name: '剧情', source_code: 'custom_0' }
   ]);
@@ -650,7 +653,7 @@ test('yellow content filter skips adult sources and adult-looking search results
 test('search results require title relevance and ignored sources do not paginate', async () => {
   const storage = new Map([
     ['yellowFilterEnabled', 'false'],
-    ['selectedAPIs', JSON.stringify(['siwa'])]
+    ['selectedAPIs', JSON.stringify(['shayu'])]
   ]);
   const requestedUrls = [];
   const sandbox = {
@@ -703,16 +706,16 @@ test('search results require title relevance and ignored sources do not paginate
   assert.deepEqual(
     Array.from(sandbox.window.filterResultsByQuery([
       { vod_name: '世界的主人', source_code: 'ysgc' },
-      { vod_name: '美女主播私拍', source_code: 'siwa' },
+      { vod_name: '美女主播私拍', source_code: 'shayu' },
       { vod_name: '别名', vod_sub: '世界的主人', source_code: 'ysgc' }
     ], '世界的主人')).map(item => item.vod_id || item.vod_name),
     ['世界的主人', '别名']
   );
 
-  const results = await sandbox.searchByAPIAndKeyWord('siwa', '世界的主人');
+  const results = await sandbox.searchByAPIAndKeyWord('shayu', '世界的主人');
 
   assert.deepEqual(Array.from(results), []);
-  assert.equal(requestedUrls.filter(url => url.includes('siwazyw.tv')).length, 1);
+  assert.equal(requestedUrls.filter(url => url.includes('shayuapi.com')).length, 1);
   assert.equal(requestedUrls.some(url => url.includes('pg=2')), false);
 });
 
@@ -769,7 +772,7 @@ test('player resource switch can search without loading homepage app script', as
 test('adult recommendation tag uses selected adult sources instead of Douban', async () => {
   const storage = new Map([
     ['yellowFilterEnabled', 'false'],
-    ['selectedAPIs', JSON.stringify(['ysgc', 'siwa'])],
+    ['selectedAPIs', JSON.stringify(['ysgc', 'shayu'])],
     ['userMovieTags', JSON.stringify(['热门', '成人视频', '动作'])]
   ]);
   const elements = new Map([
@@ -839,8 +842,8 @@ test('adult recommendation tag uses selected adult sources instead of Douban', a
   vm.runInContext(await readProjectFile('js/douban.js'), sandbox);
 
   assert.equal(typeof sandbox.fetchLatestByAPI, 'function');
-  const latest = await sandbox.fetchLatestByAPI('siwa', 2);
-  assert.deepEqual(Array.from(latest).map(item => item.source_code), ['siwa']);
+  const latest = await sandbox.fetchLatestByAPI('shayu', 2);
+  assert.deepEqual(Array.from(latest).map(item => item.source_code), ['shayu']);
 
   const renderPromise = sandbox.renderRecommend('成人视频', 16, 0);
   if (renderPromise && typeof renderPromise.then === 'function') {
@@ -849,7 +852,7 @@ test('adult recommendation tag uses selected adult sources instead of Douban', a
   await new Promise(resolve => setTimeout(resolve, 0));
 
   assert.equal(requestedUrls.some(url => url.includes('movie.douban.com')), false);
-  assert.equal(requestedUrls.some(url => url.includes('siwazyw.tv') && url.includes('ac=videolist') && url.includes('pg=')), true);
+  assert.equal(requestedUrls.some(url => url.includes('shayuapi.com') && url.includes('ac=videolist') && url.includes('pg=')), true);
   assert.equal(requestedUrls.some(url => url.includes('wd=')), false);
 });
 
@@ -1231,7 +1234,7 @@ test('first-run guidance and diagnostics page support public self-hosting', asyn
   assert.match(diagnosticsHtml, /源健康/);
   assert.match(diagnosticsHtml, />检测源</);
   assert.doesNotMatch(diagnosticsHtml, /默认源健康|检测默认源/);
-  assert.match(index, /window\.location\.href='diagnostics\.html'[\s\S]*>检测源<\/button>/);
+  assert.match(index, /window\.location\.href='diagnostics\.html'[\s\S]*>诊断页/);
   assert.doesNotMatch(index, />诊断页<\/button>/);
   assert.match(diagnostics, /password-status/);
   assert.match(diagnostics, /proxy-status/);
@@ -1289,15 +1292,16 @@ test('release metadata is bumped for this update', async () => {
 
   const changelog = await readProjectFile('CHANGELOG.md');
 
-  assert.equal(packageJson.version, '1.2.56');
-  assert.equal(lockJson.version, '1.2.56');
-  assert.equal(lockJson.packages[''].version, '1.2.56');
-  assert.match(config, /version:\s*'1\.2\.56'/);
-  assert.match(serviceWorker, /const APP_VERSION = '202610310817'/);
+  assert.equal(packageJson.version, '1.2.57');
+  assert.equal(lockJson.version, '1.2.57');
+  assert.equal(lockJson.packages[''].version, '1.2.57');
+  assert.match(config, /version:\s*'1\.2\.57'/);
+  assert.match(serviceWorker, /const APP_VERSION = '202610310855'/);
   assert.match(serviceWorker, /'\/js\/player-recommendations\.js'/);
   assert.match(serviceWorker, /'\/js\/mobile-fullscreen\.js'/);
   assert.match(serviceWorker, /'\/css\/theme\.css'/);
   assert.match(serviceWorker, /'\/js\/source-speed\.js'/);
+  assert.match(changelog, /## 1\.2\.57 - 2026-10-31[\s\S]*?一键优选/);
   assert.match(changelog, /## 1\.2\.56 - 2026-10-31[\s\S]*?edge to edge/);
   assert.match(changelog, /## 1\.2\.55 - 2026-10-31[\s\S]*?two permissions instead of four/);
   assert.match(changelog, /## 1\.2\.54 - 2026-10-31[\s\S]*?Casting to a TV/);

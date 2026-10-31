@@ -82,6 +82,10 @@
                 <!-- 每日自动体检的结果：自动停用 / 推荐启用 -->
                 <div id="sourceAutopilotNotice" class="source-autopilot-notice" hidden></div>
 
+                <!-- 一键优选：在本机网络下测速，自动选上最快的资源站 -->
+                <button type="button" id="sourceBenchmarkButton" class="lt-btn lt-btn-primary lt-btn-block mb-2">一键优选（测速并选上最快的源）</button>
+                <div id="sourceBenchmarkResult" class="source-benchmark-result" hidden></div>
+
                 <!-- 批量操作按钮 -->
                 <div class="flex flex-wrap gap-2 mb-3">
                     <button onclick="selectAllAPIs(true)" class="lt-btn lt-btn-sm">全选</button>
@@ -193,7 +197,7 @@
                     <button onclick="exportConfig()" class="lt-btn lt-btn-primary">导出配置</button>
                 </div>
                 <button onclick="showFirstRunGuide(true)" class="lt-btn lt-btn-block mb-2">首次使用指南</button>
-                <button onclick="window.location.href='diagnostics.html'" class="lt-btn lt-btn-block mb-2">检测源</button>
+                <button onclick="window.location.href='diagnostics.html'" class="lt-btn lt-btn-block mb-2">诊断页（密码、代理、资源站详细检测）</button>
                 <button onclick="clearLocalStorage()" class="lt-btn lt-btn-block lt-btn-danger">清除Cookie</button>
             </div>
         </div>
@@ -479,6 +483,7 @@
     <script src="js/quick-play.js"></script>
     <script src="js/source-availability.js"></script>
     <script src="js/source-autopilot.js"></script>
+    <script src="js/source-benchmark.js"></script>
     <script src="js/source-hosts.js"></script>
     <script src="js/experience.js"></script>
     <script src="js/episode-context.js"></script>

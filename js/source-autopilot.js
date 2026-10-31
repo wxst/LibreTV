@@ -139,7 +139,10 @@
 
     function score(id) {
         const quality = window.LibreExperience?.qualityScore?.(id) || 0;
-        return healthScore(read(HISTORY_KEY, {}), id) + quality;
+        // 一键优选在本机网络下测得的视频下载速度：越快越优先（约 1 MB/s 加 3 分，封顶 5 分）
+        const kbps = window.SourceBenchmark?.speedOf?.(id) || 0;
+        const speed = kbps > 0 ? Math.min(5, Math.log2(1 + kbps / 128)) : 0;
+        return healthScore(read(HISTORY_KEY, {}), id) + quality + speed;
     }
 
     // Stable: equal scores keep the viewer's own order.

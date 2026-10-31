@@ -91,3 +91,20 @@ test('the player offers 弹幕 in its settings, toggles with D and loads per epi
   // Other sites' /api/ paths (iQiyi's id decoder) are not taken for this site's API.
   assert.match(await read('js/api.js'), /requestUrl\.origin === window\.location\.origin && requestUrl\.pathname\.startsWith\('\/api\/'\)/);
 });
+
+test('danmaku text decodes HTML entities and turns platform emote codes into emoji', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const vm = await import('node:vm');
+  const sandbox = { window: {}, document: {} };
+  vm.runInNewContext(await readFile(new URL('../js/danmaku.js', import.meta.url), 'utf8'), sandbox);
+  const { cleanText, thin } = sandbox.window.Danmaku.logic;
+  assert.equal(cleanText('我的&#128014;哦'), '我的🐎哦');
+  assert.equal(cleanText('&#x1F600; A &amp; B'), '😀 A & B');
+  assert.equal(cleanText('灵魂战士？[呆住]变身'), '灵魂战士？😳变身');
+  assert.equal(cleanText('来了[马年大吉]'), '来了🐴🧧');
+  assert.equal(cleanText('牡丹江[打卡-打][打卡-卡]'), '牡丹江✅', 'a two-part emote shows once');
+  assert.equal(cleanText('[未知表情]好'), '好', 'unknown emote codes are dropped');
+  assert.equal(cleanText('数组[0]和[ok]'), '数组[0]和[ok]', 'plain brackets stay');
+  // A comment that was only an unknown emote is not shown at all.
+  assert.equal(thin([{ text: '[未知表情]', time: 1 }, { text: '好看[狗头]', time: 2 }], 4).map(item => item.text).join('|'), '好看🐶');
+});
