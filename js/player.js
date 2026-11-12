@@ -1358,6 +1358,7 @@ function loadDanmakuForCurrentEpisode() {
         year,
         kind: params.get('kind') || (currentEpisodes.length > 1 ? 'tv' : ''),
         index: currentEpisodeIndex,
+        episodeName: currentEpisodeNames[currentEpisodeIndex] || '',
         duration: Number(art?.video?.duration) || 0,
         from: Number(art?.video?.currentTime) || 0,
         signal: controller.signal,

@@ -2,6 +2,18 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.59 - 2026-11-12
+
+### Fixed
+
+- Danmaku for variety shows, Mango TV first. 后会友期 now loads its Mango TV comments (23,659 for 第4期上).
+  - For variety shows, 360 lists each episode separately on every platform (第3期上, 加更版, 抢鲜版…) instead of giving one link, and the code only understood the single-link form used by films and series. So variety comments were never found.
+  - Resource sites name the same episode in many ways, such as 第20261029期上, 20261029第3期上, 20261029上, 第3期上 and 20261022-01. The player now passes the episode name, and `js/danmaku.js` reads the air date, issue number, 上 / 下 and edition (正片 / 加更 / 抢鲜 / 沉浸版 / 花絮) from it, then picks the best-matching platform episode.
+  - Two episodes on the same day are told apart by order (-01 / -02, or 上 → first, 下 → last) or by the closest running time. A name with nothing to go on (just 抢鲜版) is left unmatched rather than guessed.
+  - Mango TV: the full episode list (`pcweb.api.mgtv.com/episode/list`) and each month's air dates (`variety/showlist`) are fetched through the proxy.
+  - 沉浸版 episodes use the separate 沉浸版 programme.
+  - Checked against the real 后会友期 listings of five resource sites: all episode names that carry a date or number map to the right Mango episode.
+
 ## 1.2.58 - 2026-10-31
 
 ### Added
