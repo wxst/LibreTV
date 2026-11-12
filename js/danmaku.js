@@ -66,6 +66,131 @@
         return null;
     }
 
+    // ---- 综艺：按集名对应到平台上的那一期 ----
+    // 360 给综艺的是每期的列表（第 3 期上、加更版、抢鲜版……），资源站的集名又各写各的：
+    // 「第20261029期上」「20261029第3期上」「20261029上」「第3期上」「20261022-01」。
+    // 从集名里认出播出日期、第几期、上 / 下、版本（正片 / 加更 / 抢鲜 / 沉浸 / 花絮），再找最符合的一期。
+    const EPISODE_KINDS = [['immersive', /沉浸/], ['plus', /加更|plus/i], ['preview', /抢鲜|抢先|先导/], ['extra', /纯享|彩蛋|花絮|特辑|看点|直拍|精华|预告/]];
+
+    function episodeFeatures(text) {
+        const raw = String(text || '').normalize('NFKC');
+        const date = raw.match(/(20\d{2})[-./年]?([01]\d)[-./月]?([0-3]\d)/);
+        const issue = raw.replace(/20\d{2}[-./年]?[01]\d[-./月]?[0-3]\d/g, ' ').match(/第\s*(\d{1,3})\s*[期集]|EP\s*0*(\d{1,3})/i);
+        const part = raw.match(/(?:期|版|\d|[)）])\s*[（(]?([上中下])(?=[)）]|\s|[:：]|$)/);
+        const seq = raw.match(/20\d{6}\s*[-_]\s*0*(\d{1,2})(?!\d)/);
+        const kind = (EPISODE_KINDS.find(([, pattern]) => pattern.test(raw)) || ['main'])[0];
+        return {
+            date: date ? date[1] + date[2] + date[3] : '',
+            issue: issue ? Number(issue[1] || issue[2]) : 0,
+            part: part ? part[1] : '',
+            seq: seq ? Number(seq[1]) : 0,
+            kind
+        };
+    }
+
+    const dayNumber = date => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(4, 6)) - 1, Number(date.slice(6, 8))) / 86400000;
+
+    // candidates: [{ features, order, seconds?, ... }]；返回最符合的一项，信息不够或对不上时返回 null。
+    // duration（秒）用来在同一天的几期里挑时长最接近的。
+    function matchEpisode(name, candidates, duration = 0) {
+        const want = episodeFeatures(name);
+        if (!want.date && !want.issue && !want.part) return null;
+        let best = [];
+        let bestScore = 0;
+        for (const candidate of candidates) {
+            const got = candidate.features;
+            if (got.kind !== want.kind) continue;
+            let score = 1;
+            if (want.issue && got.issue) {
+                if (want.issue !== got.issue) continue;
+                score += 4;
+            }
+            if (want.date && got.date) {
+                const gap = Math.abs(dayNumber(want.date) - dayNumber(got.date));
+                if (gap > 1) continue;
+                score += gap === 0 ? 3 : 1;
+            }
+            if (want.part && got.part) {
+                if (want.part !== got.part) continue;
+                score += 2;
+            } else if (want.part !== got.part) {
+                score -= 1;
+            }
+            if (score > bestScore) { bestScore = score; best = [candidate]; }
+            else if (score === bestScore) best.push(candidate);
+        }
+        if (!best.length) return null;
+        best.sort((a, b) => a.order - b.order);
+        if (best.length === 1) return best[0];
+        // 同一天有几期（「20261022-01」「20261022-02」）：按播出顺序取第几个
+        if (want.seq) return best[want.seq - 1] || null;
+        // 资源站标了上 / 下、平台上是第 1 期 / 第 2 期：上取第一个，下取最后一个
+        if (want.part && best.every(candidate => !candidate.features.part)) {
+            return want.part === '上' ? best[0] : want.part === '下' ? best[best.length - 1] : best[1] || null;
+        }
+        // 还分不出来：挑时长最接近的
+        if (duration > 0 && best.every(candidate => candidate.seconds > 0)) {
+            return best.reduce((a, b) => (Math.abs(b.seconds - duration) < Math.abs(a.seconds - duration) ? b : a));
+        }
+        return want.issue || want.part ? best[0] : null;
+    }
+
+    // 芒果：从任意一期的视频 ID 拿到整档节目的分期（标题里有第几期）和每月节目单（有播出日期）
+    const mgtvLists = new Map();
+    async function mgtvEpisodes(cid, vid, signal) {
+        const key = `${cid}`;
+        if (mgtvLists.has(key)) return mgtvLists.get(key);
+        const headers = API_CONFIG.search.headers;
+        const list = await window.fetchVodApiJson(`https://pcweb.api.mgtv.com/episode/list?video_id=${vid}&page=1&size=50`, headers, signal);
+        const items = Array.isArray(list?.data?.list) ? list.data.list : [];
+        const dates = new Map();
+        const months = (await window.fetchVodApiJson(`https://pcweb.api.mgtv.com/variety/showlist?collection_id=${cid}&month=&page=1`, headers, signal).catch(() => null))?.data;
+        const monthIds = (months?.tab_m || []).map(item => item.m).filter(Boolean).slice(0, 12);
+        const pages = [months, ...await Promise.all(monthIds.map(month => window.fetchVodApiJson(
+            `https://pcweb.api.mgtv.com/variety/showlist?collection_id=${cid}&month=${month}&page=1`, headers, signal).then(r => r?.data).catch(() => null)))];
+        for (const page of pages) for (const item of page?.list || []) {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(item.t2 || '')) dates.set(String(item.video_id), item.t2.replace(/-/g, ''));
+        }
+        const showTitle = (text, title) => String(text || '').replace(title || '', '').split(/[:：]/)[0];
+        const episodes = items.filter(item => String(item.isIntact) === '1').map((item, order) => {
+            const short = String(item.t2 || item.t1 || '').split(/[:：]/)[0];
+            const long = showTitle(item.t3, item.clipName || '').replace(/^\s*\S*?\s/, '');
+            const features = episodeFeatures(`${short} ${long}`);
+            const date = dates.get(String(item.video_id));
+            if (date) features.date = date;
+            const [minutes, secs] = String(item.time || '').split(':').map(Number);
+            return { features, order, vid: String(item.video_id), name: short, seconds: minutes * 60 + (secs || 0) || 0 };
+        });
+        mgtvLists.set(key, episodes);
+        return episodes;
+    }
+
+    // 综艺的来源：每个平台按集名找到那一期
+    async function varietySources(row, episodeName, signal, duration = 0) {
+        const sources = [];
+        for (const site of SITE_ORDER) {
+            const entries = row?.playlinks?.[site];
+            if (!Array.isArray(entries) || !entries.length) continue;
+            if (site === 'imgo') {
+                const first = parseSourceUrl(entries[0]?.url);
+                if (!first) continue;
+                const episodes = await mgtvEpisodes(first.cid, first.vid, signal).catch(() => []);
+                const found = matchEpisode(episodeName, episodes, duration);
+                if (found) sources.push({ site, cid: first.cid, vid: found.vid });
+                continue;
+            }
+            const candidates = entries.map((entry, order) => {
+                const features = episodeFeatures(`${entry.name || ''} ${entry.title || ''}`);
+                if (!features.date && /^20\d{6}$/.test(String(entry.period_alias || ''))) features.date = String(entry.period_alias);
+                return { features, order: -Number(entry.playlink_num || order), entry };
+            });
+            const found = matchEpisode(episodeName, candidates);
+            const parsed = found && parseSourceUrl(found.entry.url);
+            if (parsed) sources.push(parsed);
+        }
+        return sources;
+    }
+
     // 平台表情代码（腾讯 [狗头]、[打卡-打][打卡-卡]，爱奇艺、芒果类似）在网页里没有对应图片，
     // 换成意思相近的 Unicode 表情；认不出的代码去掉，不再以方括号文字显示。
     const EMOTES = {
@@ -258,13 +383,22 @@
     // Find and load the comments of one episode. Resolves { raw, site, siteName, matched } or null;
     // `thin` picks what is shown, so a density change needs no new download. onPartial gets the same
     // shape while segments are still arriving (those near `from`, the playback position, come first).
-    async function load({ title, year, kind, index = 0, duration = 0, from = 0, signal, onPartial }) {
+    async function load({ title, year, kind, index = 0, episodeName = '', duration = 0, from = 0, signal, onPartial }) {
         if (!title || typeof DecompressionStream === 'undefined') return null;
-        const row = pickRow(await searchRows(title, signal), { title, year, kind });
+        const rows = await searchRows(title, signal);
+        let row = pickRow(rows, { title, year, kind });
+        // 综艺的「沉浸版」在平台上是另一档节目
+        if (row && /沉浸/.test(episodeName)) {
+            const immersive = rows.find(other => other !== row && /沉浸/.test(other?.titleTxt || '') && normalize(other.titleTxt).startsWith(normalize(title)));
+            if (immersive) row = immersive;
+            episodeName = episodeName.replace(/沉浸版?/g, '');
+        }
         if (!row) return null;
+        const isVariety = SITE_ORDER.some(site => Array.isArray(row.playlinks?.[site]));
+        const sources = isVariety ? await varietySources(row, episodeName, signal, duration) : sourcesFor(row, index);
         // A platform with only a handful of comments is not enough: try the next and keep the fullest.
         let best = null;
-        for (const source of sourcesFor(row, index)) {
+        for (const source of sources) {
             const meta = { site: source.site, siteName: SITE_NAMES[source.site], matched: row.titleTxt };
             const partial = [];
             const onItems = items => {
@@ -279,5 +413,5 @@
         return best;
     }
 
-    window.Danmaku = { load, thin, SITE_NAMES, logic: { cleanText, normalize, pickRow, sourceFor, sourcesFor, parseSourceUrl, thin, parseIqiyiXml, color, nearestFirst } };
+    window.Danmaku = { load, thin, SITE_NAMES, logic: { episodeFeatures, matchEpisode, varietySources, cleanText, normalize, pickRow, sourceFor, sourcesFor, parseSourceUrl, thin, parseIqiyiXml, color, nearestFirst } };
 })();

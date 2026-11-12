@@ -108,3 +108,32 @@ test('danmaku text decodes HTML entities and turns platform emote codes into emo
   // A comment that was only an unknown emote is not shown at all.
   assert.equal(thin([{ text: '[未知表情]', time: 1 }, { text: '好看[狗头]', time: 2 }], 4).map(item => item.text).join('|'), '好看🐶');
 });
+
+test('variety episodes are matched by air date, issue, part and edition, not by position', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const vm = await import('node:vm');
+  const sandbox = { window: {}, document: {} };
+  vm.runInNewContext(await readFile(new URL('../js/danmaku.js', import.meta.url), 'utf8'), sandbox);
+  const { episodeFeatures, matchEpisode } = sandbox.window.Danmaku.logic;
+  assert.equal(JSON.stringify(episodeFeatures('20261029 第3期（上）')), JSON.stringify({ date: '20261029', issue: 3, part: '上', seq: 0, kind: 'main' }));
+  assert.equal(episodeFeatures('第20261023期抢鲜').kind, 'preview');
+  assert.equal(episodeFeatures('20261030加更版第2期').kind, 'plus');
+  assert.equal(episodeFeatures('20261022-02').seq, 2);
+
+  const ep = (name, date, order, seconds = 0) => ({ name, order, seconds, features: { ...episodeFeatures(name), date } });
+  const list = [
+    ep('第1期', '20261022', 0, 6835), ep('第2期', '20261022', 1, 7446), ep('加更版第1期', '20261023', 2), ep('抢鲜版第1期', '20261023', 3),
+    ep('第3期上', '20261029', 4, 4468), ep('第3期下', '20261029', 5, 5372), ep('加更版第2期', '20261030', 6)
+  ];
+  const pick = (name, duration) => matchEpisode(name, list, duration)?.name || null;
+  assert.equal(pick('20261029上'), '第3期上');
+  assert.equal(pick('第3期下'), '第3期下');
+  assert.equal(pick('20261022-02'), '第2期');
+  assert.equal(pick('第20261022期下'), '第2期', '上 / 下 on a day with two plain episodes');
+  assert.equal(pick('第20261023期加更'), '加更版第1期');
+  assert.equal(pick('第20261023期抢鲜'), '抢鲜版第1期');
+  assert.equal(pick('20261030加更版'), '加更版第2期');
+  assert.equal(pick('第20261029期', 89 * 60), '第3期下', 'ambiguous day: closest duration');
+  assert.equal(pick('抢鲜版'), null, 'no date or number: no guess');
+  assert.equal(pick('20261112上'), null, 'a day the platform does not have');
+});
