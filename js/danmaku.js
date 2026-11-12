@@ -152,14 +152,14 @@
             if (/^\d{4}-\d{2}-\d{2}$/.test(item.t2 || '')) dates.set(String(item.video_id), item.t2.replace(/-/g, ''));
         }
         const showTitle = (text, title) => String(text || '').replace(title || '', '').split(/[:：]/)[0];
-        const episodes = items.filter(item => String(item.isIntact) === '1').map((item, order) => {
+        const episodes = items.map((item, order) => {
             const short = String(item.t2 || item.t1 || '').split(/[:：]/)[0];
             const long = showTitle(item.t3, item.clipName || '').replace(/^\s*\S*?\s/, '');
             const features = episodeFeatures(`${short} ${long}`);
             const date = dates.get(String(item.video_id));
             if (date) features.date = date;
             const [minutes, secs] = String(item.time || '').split(':').map(Number);
-            return { features, order, vid: String(item.video_id), name: short, seconds: minutes * 60 + (secs || 0) || 0 };
+            return { features, order, vid: String(item.video_id), name: short, seconds: minutes * 60 + (secs || 0) || 0, intact: String(item.isIntact) === '1' };
         });
         mgtvLists.set(key, episodes);
         return episodes;
@@ -174,9 +174,9 @@
             if (site === 'imgo') {
                 const first = parseSourceUrl(entries[0]?.url);
                 if (!first) continue;
-                const episodes = await mgtvEpisodes(first.cid, first.vid, signal).catch(() => []);
+                const episodes = (await mgtvEpisodes(first.cid, first.vid, signal).catch(() => [])).filter(item => item.intact);
                 const found = matchEpisode(episodeName, episodes, duration);
-                if (found) sources.push({ site, cid: first.cid, vid: found.vid });
+                if (found) sources.push({ site, cid: first.cid, vid: found.vid, seconds: found.seconds });
                 continue;
             }
             const candidates = entries.map((entry, order) => {
@@ -363,6 +363,43 @@
 
     const LOADERS = { qq: loadQq, qiyi: loadQiyi, imgo: loadMgtv };
 
+    // ---- 资源站插播的广告：弹幕时间按平台正片走，视频里多出来的广告段要跳过 ----
+    // blocks 是播放列表里被 #EXT-X-DISCONTINUITY 隔开的各段 { start, duration }（秒）。
+    // 视频比平台正片长出 extra 秒时，找出长度加起来正好是 extra 的几个短段（单段不超过 90 秒），就是广告。
+    // 凑不准（误差超过 3 秒）就不猜，返回空数组，交给手动校准。
+    const MAX_AD_BLOCK = 90;
+    const AD_TOLERANCE = 3;
+    function adBreaks(blocks, contentSeconds) {
+        const list = (Array.isArray(blocks) ? blocks : []).filter(block => block.duration > 0);
+        const total = list.reduce((sum, block) => sum + block.duration, 0);
+        const extra = total - contentSeconds;
+        if (!(contentSeconds > 0) || list.length < 2 || extra < AD_TOLERANCE || extra > total * 0.3) return [];
+        const candidates = list.filter(block => block.duration <= MAX_AD_BLOCK)
+            .sort((a, b) => a.duration - b.duration).slice(0, 14);
+        let best = null;
+        for (let mask = 1; mask < (1 << candidates.length); mask++) {
+            let sum = 0;
+            let count = 0;
+            for (let i = 0; i < candidates.length; i++) if (mask & (1 << i)) { sum += candidates[i].duration; count++; }
+            const error = Math.abs(sum - extra);
+            if (!best || error < best.error - 0.01 || (Math.abs(error - best.error) <= 0.01 && count < best.count)) best = { mask, error, count };
+        }
+        if (!best || best.error > AD_TOLERANCE) return [];
+        return candidates.filter((_, i) => best.mask & (1 << i))
+            .map(block => ({ start: block.start, duration: block.duration }))
+            .sort((a, b) => a.start - b.start);
+    }
+
+    // 平台正片里的第 t 秒在视频里是第几秒：每遇到一段排在它前面的广告就往后推
+    function videoTime(t, breaks) {
+        let shifted = t;
+        for (const ad of breaks || []) {
+            if (ad.start <= shifted) shifted += ad.duration;
+            else break;
+        }
+        return shifted;
+    }
+
     // 360 search results per title, kept for the session: every episode of a series needs the same
     // rows, and the search sometimes answers with no rows at all, so empty answers are retried.
     const searches = new Map();
@@ -380,7 +417,8 @@
         return rows;
     }
 
-    // Find and load the comments of one episode. Resolves { raw, site, siteName, matched } or null;
+    // Find and load the comments of one episode. Resolves { raw, site, siteName, matched, seconds } or null
+    // (seconds: the platform's runtime of the episode when known, 0 otherwise);
     // `thin` picks what is shown, so a density change needs no new download. onPartial gets the same
     // shape while segments are still arriving (those near `from`, the playback position, come first).
     async function load({ title, year, kind, index = 0, episodeName = '', duration = 0, from = 0, signal, onPartial }) {
@@ -407,11 +445,20 @@
             };
             const raw = await LOADERS[source.site](source, { signal, duration, from, onItems }).catch(() => []);
             if (signal?.aborted) return null;
-            if (raw.length > (best?.raw.length || 0)) best = { ...meta, raw };
+            if (raw.length > (best?.raw.length || 0)) best = { ...meta, raw, source };
             if (raw.length >= ENOUGH) break;
         }
-        return best;
+        if (!best) return null;
+        // 平台正片多长（芒果有），用来认出资源站插播的广告
+        let seconds = best.source.seconds || 0;
+        if (!seconds && best.site === 'imgo') {
+            const list = await mgtvEpisodes(best.source.cid, best.source.vid, signal).catch(() => []);
+            seconds = list.find(item => item.vid === String(best.source.vid))?.seconds || 0;
+        }
+        const result = { ...best, seconds };
+        delete result.source;
+        return result;
     }
 
-    window.Danmaku = { load, thin, SITE_NAMES, logic: { episodeFeatures, matchEpisode, varietySources, cleanText, normalize, pickRow, sourceFor, sourcesFor, parseSourceUrl, thin, parseIqiyiXml, color, nearestFirst } };
+    window.Danmaku = { load, thin, SITE_NAMES, logic: { adBreaks, videoTime, episodeFeatures, matchEpisode, varietySources, cleanText, normalize, pickRow, sourceFor, sourcesFor, parseSourceUrl, thin, parseIqiyiXml, color, nearestFirst } };
 })();
