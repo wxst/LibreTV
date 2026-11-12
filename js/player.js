@@ -166,8 +166,8 @@ let statsTracker = null; // 当前 HLS 实例的下载统计
 let videoEnhancer = null; // 画质增强（WebGL FSR 放大 + 锐化）
 let danmakuPlugin = null; // 弹幕渲染（artplayer-plugin-danmuku）
 let danmakuPanel = null; // 弹幕设置面板（播放器里）
-// offset：手动校准的秒数（只对这一集）；breaks：认出来的插播广告；timing：上次显示用的时间换算，变了就整体重排
-const danmakuState = { key: '', controller: null, result: null, status: '', lastOnMode: 'normal', queued: new Set(), offset: 0, breaks: [], timing: '' };
+// breaks：认出来的插播广告；timing：上次显示用的时间换算，变了就整体重排
+const danmakuState = { key: '', controller: null, result: null, status: '', lastOnMode: 'normal', queued: new Set(), breaks: [], timing: '' };
 // ready：新一集的元数据加载完成前，video.currentTime 仍是上一集的进度，不能据此跳过或预加载
 let skipState = { introDone: false, outroDone: false, preloaded: false, ready: false };
 let nextEpisodePreloadController = null;
@@ -1300,7 +1300,7 @@ function setupVideoEnhance(host) {
     } catch (error) { console.warn('更新播放设置失败:', error); }
 }
 
-// ---- 弹幕：设置里的「弹幕」打开弹幕设置面板（密度、行数、不透明度、速度、字号、彩色、时间校准），按 D 开关；
+// ---- 弹幕：设置里的「弹幕」打开弹幕设置面板（密度、行数、不透明度、速度、字号、彩色），按 D 开关；
 // 每集播放时按片名和集数查找 ----
 const DANMAKU_NOT_FOUND = '这一集没有找到弹幕';
 const DANMAKU_MODES = {
@@ -1362,7 +1362,7 @@ function openDanmakuPanel() {
 
 function setupDanmaku() {
     danmakuState.controller?.abort();
-    Object.assign(danmakuState, { key: '', controller: null, result: null, status: '', offset: 0, breaks: [], timing: '' });
+    Object.assign(danmakuState, { key: '', controller: null, result: null, status: '', breaks: [], timing: '' });
     danmakuPlugin = null;
     danmakuPanel?.destroy();
     danmakuPanel = null;
@@ -1384,17 +1384,12 @@ function setupDanmaku() {
             getState: () => ({
                 visible: readDanmakuMode() !== 'off',
                 density: readDanmakuMode() === 'off' ? danmakuState.lastOnMode : readDanmakuMode(),
-                offset: danmakuState.offset,
                 autoFix: danmakuState.breaks.reduce((sum, ad) => sum + ad.duration, 0),
                 summary: danmakuSummary()
             }),
             onStyle: () => { applyDanmakuStyle(); showDanmaku({ reset: true }); },
             onDensity: value => setDanmakuMode(value),
-            onVisible: on => setDanmakuMode(on ? danmakuState.lastOnMode : 'off'),
-            onOffset: seconds => {
-                danmakuState.offset = Math.max(-600, Math.min(600, Math.round(seconds)));
-                showDanmaku();
-            }
+            onVisible: on => setDanmakuMode(on ? danmakuState.lastOnMode : 'off')
         });
     }
     let resizeTimer = null;
@@ -1424,7 +1419,7 @@ function danmakuTiming() {
     const breaks = seconds ? window.Danmaku.logic.adBreaks(hlsDiscontinuityBlocks(), seconds) : [];
     danmakuState.breaks = breaks;
     const colorful = window.DanmakuPanel?.readStyle?.().colorful !== false;
-    return { breaks, colorful, offset: danmakuState.offset, signature: JSON.stringify([breaks, colorful, danmakuState.offset]) };
+    return { breaks, colorful, signature: JSON.stringify([breaks, colorful]) };
 }
 
 // The plugin's load(list) appends to its queue and only load() with no argument clears it
@@ -1451,7 +1446,7 @@ async function showDanmaku({ reset = false } = {}) {
     const fresh = window.Danmaku.thin(danmakuState.result.raw, DANMAKU_MODES[mode].perSecond)
         .map(item => ({
             ...item,
-            time: Math.max(0, window.Danmaku.logic.videoTime(item.time, timing.breaks) + timing.offset),
+            time: window.Danmaku.logic.videoTime(item.time, timing.breaks),
             color: timing.colorful ? item.color : undefined
         }))
         .filter(item => {
@@ -1495,7 +1490,7 @@ function loadDanmakuForCurrentEpisode() {
     if (key === danmakuState.key) return;
     danmakuState.controller?.abort();
     const controller = new AbortController();
-    Object.assign(danmakuState, { key, controller, result: null, status: '查找中…', offset: 0, breaks: [], timing: '' });
+    Object.assign(danmakuState, { key, controller, result: null, status: '查找中…', breaks: [], timing: '' });
     clearDanmaku();
     renderDanmakuSetting();
     window.Danmaku.load({

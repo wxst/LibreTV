@@ -19,7 +19,6 @@ All notable changes to this maintained LibreTV fork are documented here.
     - 恢复默认设置.
   - The choices are remembered on the device. The panel also shows where the comments came from and how many are shown.
   - On a TV, the up / down keys adjust a bar and left / right move between bars. The back key closes the panel.
-- Manual danmaku timing for the current episode: −5 / −1 / +1 / +5 s, or reset.
 
 ### Fixed
 
@@ -27,7 +26,7 @@ All notable changes to this maintained LibreTV fork are documented here.
   - Some resource sites splice ~20 s ad clips into the video. Their file names look like the episode's own files, so the ad filter keeps them, and the comments fell behind by the length of each ad.
   - The player now compares the playlist's sections with the platform's own runtime (Mango TV gives it) and finds the short sections that add up to the extra length. Comments then skip those sections.
   - Example: on one site 第5期上 is 55 s longer than Mango's 68:16, from three ads of 19.6 + 17.4 + 19.6 s.
-  - If no such sections add up to within 3 s of the difference, nothing is guessed, and the manual timing is there instead.
+  - If no such sections add up to within 3 s of the difference, nothing is guessed and the comments keep the platform's timing. The panel says how many seconds of ads were skipped.
 - iPhone fullscreen now shows danmaku.
   - The iPhone's system fullscreen player cannot show anything from the page. So while danmaku is on, the fullscreen button uses the page's own fullscreen instead.
   - When the phone is held upright, the player is turned 90° so the video still fills the screen sideways. The progress bar, swipe gestures, double tap and the danmaku panel all follow the turned direction.

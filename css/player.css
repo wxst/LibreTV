@@ -1566,8 +1566,7 @@ input:checked + .slider:before {
     background: rgba(255, 255, 255, 0.07);
 }
 
-.danmaku-panel .dm-segment button,
-.danmaku-panel .dm-offset button {
+.danmaku-panel .dm-segment button {
     min-height: 2.2rem;
     border-radius: 9px;
     color: #eef0ff;
@@ -1611,26 +1610,6 @@ input:checked + .slider:before {
     transform: translateX(1.25rem);
 }
 
-.danmaku-panel .dm-offset {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1.6fr 1fr 1fr;
-    gap: 0.3rem;
-    padding: 0.3rem;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.07);
-}
-
-.danmaku-panel .dm-offset .dm-offset-value {
-    background: rgba(255, 255, 255, 0.1);
-    font-variant-numeric: tabular-nums;
-}
-
-.danmaku-panel .dm-hint {
-    margin: 0.45rem 0 0;
-    color: #8e92ad;
-    font-size: 0.76rem;
-    line-height: 1.45;
-}
 
 .danmaku-panel button:focus-visible {
     outline: 2px solid #8b5cf6;

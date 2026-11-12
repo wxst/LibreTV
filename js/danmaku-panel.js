@@ -1,6 +1,6 @@
 // 弹幕设置面板（样式参考视频网站的「弹幕工具箱」）：行数 / 不透明度 / 速度 / 字号四个竖条，
-// 密度、彩色弹幕开关、时间校准，以及「恢复默认设置」。面板放在播放器里面，全屏和横过来的网页全屏里都能用。
-// 样式选择记在本机（danmakuStyle）；时间校准只对当前这一集有效。
+// 密度、彩色弹幕开关，以及「恢复默认设置」。面板放在播放器里面，全屏和横过来的网页全屏里都能用。
+// 样式选择记在本机（danmakuStyle）。
 (() => {
     const STORE_KEY = 'danmakuStyle';
 
@@ -81,14 +81,9 @@
         return Math.min(1, Math.max(0, ratio));
     }
 
-    function formatOffset(seconds) {
-        if (!seconds) return '0 秒';
-        return `${seconds > 0 ? '延后' : '提前'} ${Math.abs(seconds)} 秒`;
-    }
-
-    // host: 播放器元素；getState() → { visible, density, offset, autoFix, summary }；
-    // onStyle(style)、onDensity(mode)、onVisible(on)、onOffset(seconds) 由播放器处理；isRotated() 说明播放器是否横过来了
-    function create({ host, getState, onStyle, onDensity, onVisible, onOffset, isRotated = () => false }) {
+    // host: 播放器元素；getState() → { visible, density, autoFix, summary }（autoFix：自动跳过的插播广告秒数）；
+    // onStyle(style)、onDensity(mode)、onVisible(on) 由播放器处理；isRotated() 说明播放器是否横过来了
+    function create({ host, getState, onStyle, onDensity, onVisible, isRotated = () => false }) {
         let style = readStyle();
         const panel = document.createElement('div');
         panel.className = 'danmaku-panel';
@@ -116,6 +111,7 @@
                     <button type="button" class="dm-switch" role="switch" data-act="visible" aria-label="显示弹幕"></button>
                 </div>
                 <p class="dm-status"></p>
+                <p class="dm-status dm-autofix"></p>
                 <h4>弹幕展示</h4>
                 <div class="dm-sliders">${sliders}</div>
                 <h4>弹幕密度</h4>
@@ -125,15 +121,6 @@
                     <span>🎨 彩色弹幕</span>
                     <button type="button" class="dm-switch" role="switch" data-act="colorful" aria-label="彩色弹幕"></button>
                 </div>
-                <h4>时间校准</h4>
-                <div class="dm-offset">
-                    <button type="button" data-offset="-5">-5 秒</button>
-                    <button type="button" data-offset="-1">-1 秒</button>
-                    <button type="button" class="dm-offset-value" data-offset="0" title="归零"></button>
-                    <button type="button" data-offset="1">+1 秒</button>
-                    <button type="button" data-offset="5">+5 秒</button>
-                </div>
-                <p class="dm-hint dm-offset-hint"></p>
             </div>`;
         host.appendChild(panel);
 
@@ -154,10 +141,8 @@
             panel.querySelector('[data-act="visible"]').setAttribute('aria-checked', String(Boolean(state.visible)));
             panel.querySelector('[data-act="colorful"]').setAttribute('aria-checked', String(style.colorful));
             panel.querySelector('.dm-status').textContent = state.summary || '';
-            panel.querySelector('.dm-offset-value').textContent = formatOffset(state.offset || 0);
-            panel.querySelector('.dm-offset-hint').textContent = state.autoFix
-                ? `已自动跳过视频里插播的 ${Math.round(state.autoFix)} 秒广告。弹幕仍然早了就点「+」，晚了点「-」。`
-                : '弹幕比画面早就点「+」，晚了点「-」，只对这一集有效。';
+            panel.querySelector('.dm-autofix').textContent = state.autoFix
+                ? `视频里有 ${Math.round(state.autoFix)} 秒插播广告，弹幕已自动跳过，和画面对齐。` : '';
         }
 
         function setStyle(next) {
@@ -223,12 +208,6 @@
             const act = event.target.closest('[data-act]')?.dataset.act;
             if (act === 'visible') { onVisible?.(!getState()?.visible); render(); return; }
             if (act === 'colorful') { setStyle({ ...style, colorful: !style.colorful }); return; }
-            const offset = event.target.closest('[data-offset]');
-            if (offset) {
-                const delta = Number(offset.dataset.offset);
-                onOffset?.(delta === 0 ? 0 : (getState()?.offset || 0) + delta);
-                render();
-            }
         });
         // 面板上的点按、滑动不传给播放器（不暂停、不触发手势调进度 / 亮度）
         for (const type of ['click', 'dblclick', 'touchstart', 'touchmove', 'touchend', 'mousedown', 'pointerdown', 'wheel']) {
@@ -258,5 +237,5 @@
         };
     }
 
-    window.DanmakuPanel = { create, readStyle, pluginOptions, logic: { normalizeStyle, pluginOptions, sliderRatio, formatOffset, SLIDERS, DEFAULTS } };
+    window.DanmakuPanel = { create, readStyle, pluginOptions, logic: { normalizeStyle, pluginOptions, sliderRatio, SLIDERS, DEFAULTS } };
 })();
