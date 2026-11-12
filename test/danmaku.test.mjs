@@ -137,3 +137,48 @@ test('variety episodes are matched by air date, issue, part and edition, not by 
   assert.equal(pick('抢鲜版'), null, 'no date or number: no guess');
   assert.equal(pick('20261112上'), null, 'a day the platform does not have');
 });
+
+test('ad breaks a collection site spliced into the video are found from the platform runtime', async () => {
+  const { adBreaks, videoTime } = (await load()).logic;
+  // 后会友期 第5期上 on one site: three ~20 s ads named like the episode's own files; 芒果's runtime is 68:16.
+  const blocks = [
+    { start: 0, duration: 357.2 }, { start: 357.2, duration: 19.6 }, { start: 376.9, duration: 1319.8 },
+    { start: 1696.7, duration: 17.4 }, { start: 1714.0, duration: 1920.7 }, { start: 3634.7, duration: 19.6 },
+    { start: 3654.4, duration: 497.0 }
+  ];
+  const breaks = plain(adBreaks(blocks, 68 * 60 + 16));
+  assert.deepEqual(breaks.map(ad => ad.start), [357.2, 1696.7, 3634.7]);
+  assert.equal(videoTime(100, breaks), 100, 'before the first ad nothing moves');
+  assert.ok(Math.abs(videoTime(400, breaks) - 419.6) < 0.01, 'after one ad a comment moves by its length');
+  assert.ok(Math.abs(videoTime(3000, breaks) - 3037) < 0.01, 'after two ads by both');
+  // Ads already removed by the filter, or a video as long as the platform's: nothing to skip.
+  assert.deepEqual(plain(adBreaks([{ start: 0, duration: 300.8 }, { start: 300.8, duration: 2100.2 }, { start: 2401, duration: 1695 }], 4096)), []);
+  // No short blocks that add up to the difference (another cut of the show): no guess.
+  assert.deepEqual(plain(adBreaks([{ start: 0, duration: 2000 }, { start: 2000, duration: 2300 }], 4096)), []);
+  assert.deepEqual(plain(adBreaks(blocks, 0)), [], 'unknown platform runtime');
+});
+
+async function loadPanel() {
+  const sandbox = { window: {}, console, localStorage: { getItem: () => null, setItem() {} } };
+  vm.runInNewContext(await read('js/danmaku-panel.js'), sandbox);
+  return sandbox.window.DanmakuPanel;
+}
+
+test('danmaku style choices become plugin options sized to the player', async () => {
+  const { pluginOptions, normalizeStyle, sliderRatio, DEFAULTS } = (await loadPanel()).logic;
+  const defaults = plain(pluginOptions(DEFAULTS, { height: 600 }));
+  assert.deepEqual(defaults, { fontSize: 24, margin: [10, '50%'], opacity: 0.9, speed: 7 }, 'half the screen by default');
+  const oneRow = pluginOptions({ ...DEFAULTS, rows: 0 }, { height: 600 });
+  assert.equal(oneRow.margin[1], 600 - 10 - (Math.ceil(24 * 1.3) + 2), 'one row leaves room for a single line');
+  assert.equal(pluginOptions({ ...DEFAULTS, rows: 7 }, { height: 600 }).margin[1], '3%', 'full screen keeps a sliver above the controls');
+  assert.equal(pluginOptions({ ...DEFAULTS, size: 4 }, { mobile: true, fullscreen: true }).fontSize, Math.round(18 * 1.3));
+  assert.equal(pluginOptions(DEFAULTS, { mobile: true }).fontSize, 14, 'the small phone player keeps small text');
+  assert.deepEqual(plain(normalizeStyle({ rows: 99, opacity: -3, speed: 'x', colorful: false })), { ...DEFAULTS, rows: 7, opacity: 0, colorful: false });
+  const rect = { left: 100, right: 140, top: 200, bottom: 340, width: 40, height: 140 };
+  assert.equal(sliderRatio(120, 340, rect, false), 0, 'bottom of the bar');
+  assert.equal(sliderRatio(120, 200, rect, false), 1, 'top of the bar');
+  // Rotated player: the bar's bottom is on the screen's left.
+  const turned = { left: 100, right: 240, top: 200, bottom: 240, width: 140, height: 40 };
+  assert.equal(sliderRatio(100, 220, turned, true), 0);
+  assert.equal(sliderRatio(240, 220, turned, true), 1);
+});

@@ -2,6 +2,37 @@
 
 All notable changes to this maintained LibreTV fork are documented here.
 
+## 1.2.60 - 2026-11-12
+
+### Added
+
+- Danmaku settings panel (`js/danmaku-panel.js`), modelled on the "弹幕工具箱" of video sites. It opens from the 弹幕 item in the playback settings and sits inside the player, so it also works in fullscreen.
+  - Four vertical bars, which you can drag, tap, or adjust with the arrow keys:
+    - 行数: 1–4 lines, ¼ screen, half screen, ¾ screen or the full screen.
+    - 不透明度: 20–100 %.
+    - 速度: five steps.
+    - 字号: five steps.
+  - The other settings in the panel:
+    - Density: 稀疏 / 适中 / 密集 / 完整. 完整 is new and shows up to 12 comments a second.
+    - A show / hide switch.
+    - 彩色弹幕: on or off.
+    - 恢复默认设置.
+  - The choices are remembered on the device. The panel also shows where the comments came from and how many are shown.
+  - On a TV, the up / down keys adjust a bar and left / right move between bars. The back key closes the panel.
+
+### Fixed
+
+- Danmaku drifted out of sync on some resource sites.
+  - Some resource sites splice ~20 s ad clips into the video. Their file names look like the episode's own files, so the ad filter keeps them, and the comments fell behind by the length of each ad.
+  - The player now compares the playlist's sections with the platform's own runtime (Mango TV gives it) and finds the short sections that add up to the extra length. Comments then skip those sections.
+  - Example: on one site 第5期上 is 55 s longer than Mango's 68:16, from three ads of 19.6 + 17.4 + 19.6 s.
+  - If no such sections add up to within 3 s of the difference, nothing is guessed and the comments keep the platform's timing. The panel says how many seconds of ads were skipped.
+- iPhone fullscreen now shows danmaku.
+  - The iPhone's system fullscreen player cannot show anything from the page. So while danmaku is on, the fullscreen button uses the page's own fullscreen instead.
+  - When the phone is held upright, the player is turned 90° so the video still fills the screen sideways. The progress bar, swipe gestures, double tap and the danmaku panel all follow the turned direction.
+  - With danmaku off (or none found for the episode), the button still uses the system fullscreen. The playback settings offer both (网页全屏 / 系统全屏).
+  - From the home-screen web app, there is no browser bar at all.
+
 ## 1.2.59 - 2026-11-12
 
 ### Fixed
